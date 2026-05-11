@@ -36,15 +36,6 @@
     padding: 14px 16px 10px;
   }
   .header-row { display: flex; align-items: center; gap: 10px; }
-  .back-btn {
-    display: flex; align-items: center; justify-content: center;
-    width: 32px; height: 32px; border-radius: 50%;
-    background: var(--orange-lt); border: none; cursor: pointer;
-    color: var(--orange); font-size: 1.1rem;
-    flex-shrink: 0; touch-action: manipulation;
-    transition: background 0.15s;
-  }
-  .back-btn:active { background: #f5c9b3; }
   .header h1 {
     font-family: 'Syne', sans-serif; font-size: 1.25rem; font-weight: 800;
     color: var(--orange); letter-spacing: -0.02em;
@@ -128,7 +119,6 @@
 
   <div class="header">
     <div class="header-row">
-      <button class="back-btn" onclick="window.location.href='index.html'" aria-label="Back to game">←</button>
       <h1>Customize Phrases</h1>
     </div>
   </div>
@@ -179,13 +169,16 @@ async function sha256(str) {
 }
 
 async function loadPasswordHash() {
+  // Always set the compiled-in fallback first so unlock works immediately
+  PASSWORD_HASH = await sha256('03052015');
+  // Then try to load from password.txt (overrides if found, e.g. on GitHub Pages)
   try {
     const res = await fetch('password.txt?nc=' + Date.now());
-    if (!res.ok) throw new Error();
-    PASSWORD_HASH = (await res.text()).trim();
-  } catch(e) {
-    PASSWORD_HASH = await sha256('03052015');
-  }
+    if (res.ok) {
+      const txt = (await res.text()).trim();
+      if (txt.length === 64) PASSWORD_HASH = txt; // only override if valid sha256
+    }
+  } catch(e) {}
 }
 
 async function checkPw() {
