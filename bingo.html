@@ -294,8 +294,7 @@ const DEFAULT_PHRASES = [
   "Is afraid of heights",
   "Can solve a Rubik's cube",
   "Has dyed their hair before",
-  "Loves karaoke",
-  "Pulled an all-nighter recently"
+  "Loves karaoke"
 ];
 
 function loadPhrases() {
@@ -303,7 +302,7 @@ function loadPhrases() {
     const stored = localStorage.getItem('bingo_phrases');
     if (stored) {
       const arr = JSON.parse(stored);
-      if (Array.isArray(arr) && arr.length === 25) return arr;
+      if (Array.isArray(arr) && arr.length === 24) return arr;
     }
   } catch(e) {}
   return [...DEFAULT_PHRASES];

@@ -230,14 +230,13 @@ const DEFAULT_PHRASES = [
   "Is afraid of heights",
   "Can solve a Rubik's cube",
   "Has dyed their hair before",
-  "Loves karaoke",
-  "Pulled an all-nighter recently"
+  "Loves karaoke"
 ];
 
 function loadPhrases() {
   try {
     const s = localStorage.getItem('bingo_phrases');
-    if (s) { const a = JSON.parse(s); if (Array.isArray(a) && a.length === 25) return a; }
+    if (s) { const a = JSON.parse(s); if (Array.isArray(a) && a.length === 24) return a; }
   } catch(e) {}
   return [...DEFAULT_PHRASES];
 }
@@ -317,8 +316,8 @@ function importTxt(e) {
     const lines = ev.target.result.split('\n')
       .map(l => l.replace(/^\d+\.\s*/, '').trim())
       .filter(Boolean);
-    if (lines.length < 25) { showToast('⚠ Need at least 25 lines'); return; }
-    renderEditor(lines.slice(0, 25));
+    if (lines.length < 24) { showToast('⚠ Need at least 24 lines'); return; }
+    renderEditor(lines.slice(0, 24));
     showToast('↑ Imported ' + file.name);
   };
   reader.readAsText(file);
