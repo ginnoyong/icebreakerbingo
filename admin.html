@@ -3,227 +3,71 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Bingo Admin — Customize Phrases</title>
+<title>Bingo — Edit Phrases</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:ital,wght@0,400;0,500;1,400&display=swap');
-
+  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500&display=swap');
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-
   :root {
-    --orange: #E8521A;
-    --orange-dk: #B83E10;
-    --orange-lt: #FDE8DC;
-    --bg: #FFF7F2;
-    --card: #FFFFFF;
-    --text: #1A1010;
-    --muted: #7A6060;
-    --border: rgba(0,0,0,0.09);
-    --radius: 10px;
-    --danger: #E24B4A;
+    --orange: #E8521A; --orange-dk: #B83E10; --orange-lt: #FDE8DC;
+    --bg: #FFF7F2; --card: #FFFFFF; --text: #1A1010; --muted: #7A6060;
+    --border: rgba(0,0,0,0.09); --radius: 10px;
   }
+  html, body { height: 100%; font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); }
 
-  html, body {
-    min-height: 100%; font-family: 'DM Sans', sans-serif;
-    background: var(--bg); color: var(--text);
+  .page { display: flex; flex-direction: column; height: 100dvh; max-width: 480px; margin: 0 auto; }
+
+  .header { flex-shrink: 0; background: var(--bg); border-bottom: 1px solid var(--border); padding: 16px 16px 12px; text-align: center; }
+  .header h1 { font-family: 'Syne', sans-serif; font-size: 1.3rem; font-weight: 800; color: var(--orange); letter-spacing: -0.02em; }
+  .header p { font-size: 0.75rem; color: var(--muted); margin-top: 3px; }
+
+  .body { flex: 1; display: flex; flex-direction: column; padding: 16px; gap: 12px; min-height: 0; }
+
+  .counter { font-size: 0.78rem; color: var(--muted); text-align: right; }
+  .counter span { font-weight: 700; color: var(--orange); }
+  .counter.warn span { color: #E24B4A; }
+
+  textarea {
+    flex: 1; width: 100%; border: 1.5px solid var(--border); border-radius: var(--radius);
+    padding: 14px; font-family: 'DM Sans', sans-serif; font-size: 0.95rem; line-height: 1.6;
+    outline: none; color: var(--text); background: var(--card); resize: none;
+    appearance: none; -webkit-appearance: none;
   }
+  textarea:focus { border-color: var(--orange); }
 
-  .page { max-width: 480px; margin: 0 auto; padding: 0 0 48px; }
+  .save-bar { flex-shrink: 0; padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px)); background: var(--bg); border-top: 1px solid var(--border); }
+  .btn-save { font-family: 'Syne', sans-serif; font-size: 0.9rem; font-weight: 800; padding: 14px; border-radius: 12px; border: none; cursor: pointer; width: 100%; background: var(--orange); color: #fff; touch-action: manipulation; transition: background 0.15s, transform 0.1s; }
+  .btn-save:active { background: var(--orange-dk); transform: scale(0.98); }
 
-  /* ── Header ── */
-  .header {
-    position: sticky; top: 0; z-index: 10;
-    background: var(--bg); border-bottom: 1px solid var(--border);
-    padding: 14px 16px 10px;
-  }
-  .header-row { display: flex; align-items: center; gap: 10px; }
-  .header h1 {
-    font-family: 'Syne', sans-serif; font-size: 1.25rem; font-weight: 800;
-    color: var(--orange); letter-spacing: -0.02em;
-  }
-
-  /* ── Lock screen ── */
-  .lock-screen { padding: 40px 20px; text-align: center; }
-  .lock-icon { font-size: 3rem; margin-bottom: 12px; }
-  .lock-screen h2 { font-family: 'Syne', sans-serif; font-size: 1.1rem; font-weight: 700; margin-bottom: 6px; }
-  .lock-screen p { font-size: 0.82rem; color: var(--muted); margin-bottom: 24px; }
-
-  .pw-field {
-    width: 100%; border: 1.5px solid var(--border); border-radius: var(--radius);
-    padding: 13px 16px; font-family: 'DM Sans', sans-serif; font-size: 1.1rem;
-    outline: none; text-align: center; letter-spacing: 0.2em;
-    color: var(--text); background: var(--card); appearance: none;
-    margin-bottom: 10px;
-  }
-  .pw-field:focus { border-color: var(--orange); }
-  .pw-err { font-size: 0.78rem; color: var(--danger); min-height: 1.2em; margin-bottom: 12px; }
-
-  /* ── Editor ── */
-  .editor { padding: 16px; display: none; }
-  .editor.show { display: block; }
-
-  .editor-intro {
-    background: var(--orange-lt); border-radius: var(--radius); padding: 12px 14px;
-    font-size: 0.8rem; color: var(--orange-dk); line-height: 1.5; margin-bottom: 16px;
-  }
-  .editor-intro strong { font-weight: 700; }
-
-  .phrase-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; }
-
-  .phrase-row {
-    display: flex; align-items: center; gap: 8px;
-  }
-  .phrase-num {
-    font-family: 'Syne', sans-serif; font-size: 0.68rem; font-weight: 700;
-    color: var(--muted); width: 20px; flex-shrink: 0; text-align: right;
-  }
-  .phrase-input {
-    flex: 1; border: 1.5px solid var(--border); border-radius: var(--radius);
-    padding: 10px 12px; font-family: 'DM Sans', sans-serif; font-size: 0.88rem;
-    outline: none; color: var(--text); background: var(--card); appearance: none;
-    transition: border-color 0.15s;
-  }
-  .phrase-input:focus { border-color: var(--orange); }
-  .phrase-input::placeholder { color: #bbb; }
-
-  .actions { display: flex; flex-direction: column; gap: 10px; }
-  .btn {
-    font-family: 'Syne', sans-serif; font-size: 0.82rem; font-weight: 700;
-    padding: 13px 20px; border-radius: 12px; border: none; cursor: pointer;
-    touch-action: manipulation; transition: background 0.15s, transform 0.1s;
-    text-align: center; width: 100%;
-  }
-  .btn:active { transform: scale(0.97); }
-  .btn-primary { background: var(--orange); color: #fff; }
-  .btn-primary:active { background: var(--orange-dk); }
-  .btn-ghost { background: var(--card); color: var(--muted); border: 1.5px solid var(--border); }
-  .btn-ghost:active { background: #f0e8e4; }
-  .btn-danger { background: transparent; color: var(--danger); border: 1.5px solid var(--danger); }
-  .btn-danger:active { background: #fef0f0; }
-
-  /* ── Toast ── */
-  .toast {
-    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px);
-    background: #1A1010; color: #fff; border-radius: 99px;
-    padding: 10px 20px; font-size: 0.82rem; font-weight: 500;
-    transition: transform 0.3s cubic-bezier(.32,.72,0,1), opacity 0.3s;
-    opacity: 0; white-space: nowrap; z-index: 999; pointer-events: none;
-  }
+  .toast { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%) translateY(20px); background: #1A1010; color: #fff; border-radius: 99px; padding: 10px 22px; font-size: 0.82rem; font-weight: 500; transition: transform 0.28s cubic-bezier(.32,.72,0,1), opacity 0.28s; opacity: 0; white-space: nowrap; z-index: 999; pointer-events: none; }
   .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
-
-  /* ── Lock screen btn ── */
-  .lock-screen .btn { max-width: 260px; margin: 0 auto; display: block; }
 </style>
 </head>
 <body>
 <div class="page">
-
   <div class="header">
-    <div class="header-row">
-      <h1>Customize Phrases</h1>
-    </div>
+    <h1>✏️ Edit Phrases</h1>
+    <p>Separate phrases with a new line or semicolon</p>
   </div>
-
-  <!-- Lock screen -->
-  <div class="lock-screen" id="lockScreen">
-    <div class="lock-icon">🔒</div>
-    <h2>Admin access</h2>
-    <p>Enter the password to edit the 25 bingo phrases.</p>
-    <input
-      class="pw-field" id="pwInput"
-      type="password" placeholder="Password"
-      autocomplete="off"
-      onkeydown="if(event.key==='Enter'){event.preventDefault();checkPw();}"
-    >
-    <div class="pw-err" id="pwErr"></div>
-    <button class="btn btn-primary" onclick="checkPw()">Unlock</button>
+  <div class="body">
+    <div class="counter" id="counter"><span>0</span> / 24 phrases</div>
+    <textarea id="phraseBox" placeholder="Enter your phrases here, one per line or separated by semicolons…" oninput="updateCounter()"></textarea>
   </div>
-
-  <!-- Phrase editor -->
-  <div class="editor" id="editor">
-    <div class="editor-intro">
-      <strong>25 phrases</strong> — these will be randomly shuffled into each player's bingo card. Keep phrases short and fun!
-    </div>
-
-    <div class="phrase-list" id="phraseList"></div>
-
-    <div class="actions">
-      <button class="btn btn-primary" onclick="savePhrases()">💾 Save phrases</button>
-      <button class="btn btn-ghost" onclick="exportTxt()">↓ Export as .txt</button>
-      <button class="btn btn-ghost" onclick="importTrigger()">↑ Import from .txt</button>
-      <button class="btn btn-danger" onclick="resetToDefaults()">↺ Reset to defaults</button>
-    </div>
-
-    <input type="file" id="importFile" accept=".txt" style="display:none" onchange="importTxt(event)">
+  <div class="save-bar">
+    <button class="btn-save" onclick="savePhrases()">Save phrases</button>
   </div>
-
 </div>
-
 <div class="toast" id="toast"></div>
 
 <script>
-let PASSWORD_HASH = null;
-
-async function sha256(str) {
-  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
-  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
-}
-
-async function loadPasswordHash() {
-  // Always set the compiled-in fallback first so unlock works immediately
-  PASSWORD_HASH = await sha256('03052015');
-  // Then try to load from password.txt (overrides if found, e.g. on GitHub Pages)
-  try {
-    const res = await fetch('password.txt?nc=' + Date.now());
-    if (res.ok) {
-      const txt = (await res.text()).trim();
-      if (txt.length === 64) PASSWORD_HASH = txt; // only override if valid sha256
-    }
-  } catch(e) {}
-}
-
-async function checkPw() {
-  const v = document.getElementById('pwInput').value;
-  if (!PASSWORD_HASH) { showToast('⚠ Still loading, try again'); return; }
-  const hash = await sha256(v);
-  if (hash === PASSWORD_HASH) {
-    document.getElementById('pwErr').textContent = '';
-    document.getElementById('lockScreen').style.display = 'none';
-    document.getElementById('editor').classList.add('show');
-    renderEditor(loadPhrases());
-  } else {
-    document.getElementById('pwErr').textContent = 'Incorrect password.';
-    document.getElementById('pwInput').value = '';
-    document.getElementById('pwInput').focus();
-  }
-}
-
-loadPasswordHash();
-
 const DEFAULT_PHRASES = [
-  "Has traveled to 3+ countries",
-  "Speaks 2+ languages",
-  "Woke up before 6am today",
-  "Loves pineapple on pizza",
-  "Has a pet at home",
-  "Plays a musical instrument",
-  "Prefers tea over coffee",
-  "Binge-watched a series overnight",
-  "Has met a celebrity",
-  "Loves spicy food",
-  "Has run a 5K or more",
-  "Works from home regularly",
-  "Has a hidden talent",
-  "Has lived in another city",
-  "Is the eldest sibling",
-  "Can cook a dish by memory",
-  "Read a book this month",
-  "Collects something unusual",
-  "Has gone camping",
-  "Learned something new this week",
-  "Is afraid of heights",
-  "Can solve a Rubik's cube",
-  "Has dyed their hair before",
-  "Loves karaoke"
+  "Has traveled to 3+ countries","Speaks 2+ languages","Woke up before 6am today",
+  "Loves pineapple on pizza","Has a pet at home","Plays a musical instrument",
+  "Prefers tea over coffee","Binge-watched a series overnight","Has met a celebrity",
+  "Loves spicy food","Has run a 5K or more","Works from home regularly",
+  "Has a hidden talent","Has lived in another city","Is the eldest sibling",
+  "Can cook a dish by memory","Read a book this month","Collects something unusual",
+  "Has gone camping","Learned something new this week","Is afraid of heights",
+  "Can solve a Rubik's cube","Has dyed their hair before","Loves karaoke"
 ];
 
 function loadPhrases() {
@@ -234,100 +78,34 @@ function loadPhrases() {
   return [...DEFAULT_PHRASES];
 }
 
-function checkPw() {
-  const v = document.getElementById('pwInput').value;
-  if (v === PASSWORD) {
-    document.getElementById('pwErr').textContent = '';
-    document.getElementById('lockScreen').style.display = 'none';
-    document.getElementById('editor').classList.add('show');
-    renderEditor(loadPhrases());
-  } else {
-    document.getElementById('pwErr').textContent = 'Incorrect password.';
-    document.getElementById('pwInput').value = '';
-    document.getElementById('pwInput').focus();
-  }
+function parsePhrases(text) {
+  return text.split(/[;\n]+/).map(p => p.trim()).filter(Boolean);
 }
 
-function renderEditor(phrases) {
-  const list = document.getElementById('phraseList');
-  list.innerHTML = '';
-  phrases.forEach((p, i) => {
-    const row = document.createElement('div');
-    row.className = 'phrase-row';
-    row.innerHTML = `
-      <span class="phrase-num">${i + 1}</span>
-      <input class="phrase-input" type="text" maxlength="80"
-        value="${escHtml(p)}" placeholder="Phrase ${i + 1}…"
-        data-idx="${i}" autocomplete="off" autocorrect="off" spellcheck="false"
-        onkeydown="if(event.key==='Enter'){event.preventDefault();focusNext(${i});}">
-    `;
-    list.appendChild(row);
-  });
-}
-
-function focusNext(i) {
-  const inputs = document.querySelectorAll('.phrase-input');
-  if (inputs[i + 1]) inputs[i + 1].focus();
-  else savePhrases();
-}
-
-function getPhrases() {
-  return Array.from(document.querySelectorAll('.phrase-input')).map(el => el.value.trim() || `Phrase ${Number(el.dataset.idx)+1}`);
+function updateCounter() {
+  const phrases = parsePhrases(document.getElementById('phraseBox').value);
+  const n = phrases.length;
+  const el = document.getElementById('counter');
+  el.innerHTML = '<span>' + n + '</span> / 24 phrases';
+  el.className = 'counter' + (n !== 24 ? ' warn' : '');
 }
 
 function savePhrases() {
-  const phrases = getPhrases();
+  const phrases = parsePhrases(document.getElementById('phraseBox').value);
+  if (phrases.length < 24) { showToast('⚠ Need exactly 24 phrases (have ' + phrases.length + ')'); return; }
+  if (phrases.length > 24) { showToast('⚠ Too many phrases (have ' + phrases.length + ', need 24)'); return; }
   localStorage.setItem('bingo_phrases', JSON.stringify(phrases));
   showToast('✓ Phrases saved!');
 }
 
-function resetToDefaults() {
-  if (!confirm('Reset all 25 phrases to the defaults?')) return;
-  localStorage.removeItem('bingo_phrases');
-  renderEditor([...DEFAULT_PHRASES]);
-  showToast('↺ Reset to defaults');
-}
-
-function exportTxt() {
-  const phrases = getPhrases();
-  const content = phrases.map((p, i) => `${i + 1}. ${p}`).join('\n');
-  const blob = new Blob([content], { type: 'text/plain' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'bingo-phrases.txt';
-  a.click();
-  showToast('↓ Exported bingo-phrases.txt');
-}
-
-function importTrigger() { document.getElementById('importFile').click(); }
-
-function importTxt(e) {
-  const file = e.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = function(ev) {
-    const lines = ev.target.result.split('\n')
-      .map(l => l.replace(/^\d+\.\s*/, '').trim())
-      .filter(Boolean);
-    if (lines.length < 24) { showToast('⚠ Need at least 24 lines'); return; }
-    renderEditor(lines.slice(0, 24));
-    showToast('↑ Imported ' + file.name);
-  };
-  reader.readAsText(file);
-  e.target.value = '';
-}
-
 function showToast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.classList.add('show');
-  clearTimeout(t._timer);
-  t._timer = setTimeout(() => t.classList.remove('show'), 2200);
+  const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove('show'), 2500);
 }
 
-function escHtml(s) {
-  return s.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-}
+// Populate textarea with current phrases
+document.getElementById('phraseBox').value = loadPhrases().join('\n');
+updateCounter();
 </script>
 </body>
 </html>
