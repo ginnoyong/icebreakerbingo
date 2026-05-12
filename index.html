@@ -316,45 +316,54 @@
 <canvas id="confetti"></canvas>
 
 <script>
+const SUPABASE_URL = "https://hqgemmfrpbpkecxxxhab.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhxZ2VtbWZycGJwa2VjeHh4aGFiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg1MzcyMDgsImV4cCI6MjA5NDExMzIwOH0.WjHpA2_MBg-CVY9G6t0cw31f_ZfXT-tZekcBWquT2x4";
+
 const DEFAULT_PHRASES = [
-  "Has traveled to 3+ countries",
-  "Speaks 2+ languages",
-  "Woke up before 6am today",
-  "Loves pineapple on pizza",
-  "Has a pet at home",
-  "Plays a musical instrument",
-  "Prefers tea over coffee",
-  "Binge-watched a series overnight",
-  "Has met a celebrity",
-  "Loves spicy food",
-  "Has run a 5K or more",
-  "Works from home regularly",
-  "Has a hidden talent",
-  "Has lived in another city",
-  "Is the eldest sibling",
-  "Can cook a dish by memory",
-  "Read a book this month",
-  "Collects something unusual",
-  "Has gone camping",
-  "Learned something new this week",
-  "Is afraid of heights",
-  "Can solve a Rubik's cube",
-  "Has dyed their hair before",
-  "Loves karaoke"
+  "Has more than 2 pets",
+  "Takes more than 1hr to get to school",
+  "Owns a Casio watch",
+  "Can speak 3 or more languages",
+  "Has cried watching K-drama before",
+  "Has a part-time job",
+  "Plays Mobile Legends or MLBB",
+  "Has a Spotify student plan",
+  "Has typed OTW while still at home",
+  "Drinks bubble tea 3+ times a week",
+  "Is in the school team of a CCA",
+  "Has a group chat with 50+ members",
+  "Has overslept on an exam day",
+  "Follows local influencers on Instagram",
+  "Has posted a TikTok before",
+  "Has own baby photo(s) in phone",
+  "Can recite parents phone numbers by heart",
+  "Hates durians",
+  "Cannot take spicy food",
+  "Has dozed off on the MRT and missed their stop",
+  "Plays basketball at the void deck",
+  "Has studied for exams at the airport",
+  "Has mistaken a stranger for a friend",
+  "Has more than 250 followers on social media"
 ];
 
-function loadPhrases() {
+async function fetchPhrasesFromSupabase() {
   try {
-    const stored = localStorage.getItem('bingo_phrases');
-    if (stored) {
-      const arr = JSON.parse(stored);
-      if (Array.isArray(arr) && arr.length === 24) return arr;
+    const res = await fetch(SUPABASE_URL + "/rest/v1/phrases?id=eq.1&select=data", {
+      headers: {
+        "apikey": SUPABASE_KEY,
+        "Authorization": "Bearer " + SUPABASE_KEY
+      }
+    });
+    if (!res.ok) throw new Error();
+    const json = await res.json();
+    if (json && json[0] && Array.isArray(json[0].data) && json[0].data.length === 24) {
+      return json[0].data;
     }
   } catch(e) {}
   return [...DEFAULT_PHRASES];
 }
 
-let phrases = loadPhrases();
+let phrases = [...DEFAULT_PHRASES];
 let shuffled = [];
 let marks = new Array(25).fill(false);
 let notes = new Array(25).fill("");
@@ -385,7 +394,6 @@ function getSeed() {
 }
 
 function buildBoard() {
-  phrases = loadPhrases();
   const seed = getSeed();
   let pool = seededShuffle(phrases, seed);
   pool.splice(12, 0, null);
@@ -535,7 +543,11 @@ function launchConfetti() {
   draw();
 }
 
-buildBoard();
+async function init() {
+  phrases = await fetchPhrasesFromSupabase();
+  buildBoard();
+}
+init();
 window.addEventListener('resize', fitCellText);
 </script>
 
