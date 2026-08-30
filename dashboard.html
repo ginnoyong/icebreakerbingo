@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Bingo — Host Dashboard</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  /* Page-specific rules not covered by shared style.css */
+  .header-sub .email { font-size: 0.75rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 220px; }
+  .body { flex: 1; display: flex; flex-direction: column; padding: 16px; gap: 16px; }
+  .card + .card { margin-top: 0; }
+  .card h2 { font-family: 'Syne', sans-serif; font-size: 0.95rem; font-weight: 800; color: var(--orange); margin-bottom: 10px; }
+
+  .counter { font-size: 0.78rem; color: var(--muted); text-align: right; margin-bottom: 8px; }
+  .counter span { font-weight: 700; color: var(--orange); }
+  .counter.warn span { color: #E24B4A; }
+
+  textarea#phraseBox {
+    width: 100%; min-height: 260px; border: 1.5px solid var(--border); border-radius: var(--radius);
+    padding: 14px; font-family: 'DM Sans', sans-serif; font-size: 0.95rem; line-height: 1.7;
+    outline: none; color: var(--text); background: var(--card); resize: vertical; appearance: none;
+  }
+  textarea#phraseBox:focus { border-color: var(--orange); }
+  textarea#phraseBox.loading { opacity: 0.5; }
+  textarea#phraseBox:disabled { opacity: 0.5; }
+
+  .card .btn-large { margin-top: 12px; }
+
+  .session-empty p.sub { font-size: 0.8rem; color: var(--muted); margin-bottom: 12px; line-height: 1.4; }
+
+  .session-active { display: flex; flex-direction: column; gap: 12px; }
+  .share-row { display: flex; gap: 8px; align-items: center; }
+  .share-url {
+    flex: 1; border: 1.5px solid var(--border); border-radius: 8px; padding: 10px 12px;
+    font-size: 0.78rem; color: var(--text); background: var(--bg); overflow-x: auto;
+    white-space: nowrap; -webkit-user-select: all; user-select: all;
+  }
+  .qr-wrap { display: flex; flex-direction: column; align-items: center; gap: 8px; padding-top: 4px; }
+  .qr-wrap p { font-size: 0.72rem; color: var(--muted); }
+  #qrcode { padding: 10px; background: #fff; border-radius: 12px; border: 1.5px solid var(--border); cursor: pointer; touch-action: manipulation; line-height: 0; }
+  #qrcodeFull { padding: 16px; background: #fff; border-radius: 16px; line-height: 0; }
+  .full-overlay p.caption { color: rgba(255,255,255,0.8); font-size: 0.85rem; margin-top: 18px; text-align: center; }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="header">
+    <h1>🎉 Icebreaker Bingo</h1>
+    <div class="header-sub">
+      <span class="email" id="userEmail">&nbsp;</span>
+      <button class="btn btn-ghost" id="logoutBtn">Log out</button>
+    </div>
+  </div>
+
+  <div class="body">
+    <div class="card" id="phrasesCard">
+      <h2>Your Phrases</h2>
+      <div class="counter" id="counter"><span>—</span> / 24 phrases</div>
+      <textarea id="phraseBox" class="loading" placeholder="Loading phrases…" disabled></textarea>
+      <button class="btn-large" id="saveBtn" disabled>Loading…</button>
+    </div>
+
+    <div class="card" id="sessionCard">
+      <h2>Session</h2>
+      <div class="session-empty" id="sessionEmpty">
+        <p class="sub">Start a session to let players join with a link or QR code.</p>
+        <button class="btn-large" id="startBtn">Start Session</button>
+      </div>
+      <div class="session-active" id="sessionActive" style="display:none;">
+        <div class="share-row">
+          <div class="share-url" id="shareUrlText"></div>
+          <button class="btn btn-primary" id="copyBtn">Copy link</button>
+        </div>
+        <div class="qr-wrap">
+          <div id="qrcode"></div>
+          <p>Tap to enlarge</p>
+        </div>
+        <button class="btn-large" id="restartBtn">Start New Session</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div class="full-overlay" id="qrOverlay">
+  <button class="full-overlay-close" id="qrOverlayClose">✕</button>
+  <div id="qrcodeFull"></div>
+  <p class="caption">Scan with your phone camera to join</p>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="config.js"></script>
+<script>
+let currentSession = null;
+
+function parsePhrases(text) {
+  return text.split(/[;\n]+/).map(p => p.trim()).filter(Boolean);
+}
+
+function updateCounter() {
+  const n = parsePhrases(document.getElementById('phraseBox').value).length;
+  const el = document.getElementById('counter');
+  el.innerHTML = '<span>' + n + '</span> / 24 phrases';
+  el.className = 'counter' + (n !== 24 ? ' warn' : '');
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._t);
+  t._t = setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+async function loadPhrases(userId) {
+  const box = document.getElementById('phraseBox');
+  let phrases = DEFAULT_PHRASES;
+  try {
+    const { data, error } = await sb
+      .from('user_phrases')
+      .select('phrases')
+      .eq('user_id', userId)
+      .maybeSingle();
+    if (!error && data && Array.isArray(data.phrases) && data.phrases.length === 24) {
+      phrases = data.phrases;
+    }
+  } catch (e) {
+    // fall back to defaults
+  }
+  box.value = phrases.join('\n');
+  box.classList.remove('loading');
+  box.disabled = false;
+  const btn = document.getElementById('saveBtn');
+  btn.disabled = false;
+  btn.textContent = 'Save phrases';
+  updateCounter();
+}
+
+async function savePhrases(userId) {
+  const phrases = parsePhrases(document.getElementById('phraseBox').value);
+  if (phrases.length !== 24) {
+    showToast('⚠ Need exactly 24 phrases (have ' + phrases.length + ')');
+    return;
+  }
+  const btn = document.getElementById('saveBtn');
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+  try {
+    const { error } = await sb.from('user_phrases').upsert(
+      { user_id: userId, phrases, updated_at: new Date().toISOString() },
+      { onConflict: 'user_id' }
+    );
+    if (error) throw error;
+    showToast('✓ Phrases saved');
+  } catch (e) {
+    showToast('✗ Save failed — check connection');
+  }
+  btn.disabled = false;
+  btn.textContent = 'Save phrases';
+}
+
+function renderQr(shareUrl) {
+  const qrDiv = document.getElementById('qrcode');
+  const qrFullDiv = document.getElementById('qrcodeFull');
+  qrDiv.innerHTML = '';
+  qrFullDiv.innerHTML = '';
+  new QRCode(qrDiv, {
+    text: shareUrl, width: 160, height: 160,
+    colorDark: '#1A1010', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M
+  });
+  new QRCode(qrFullDiv, {
+    text: shareUrl, width: 240, height: 240,
+    colorDark: '#1A1010', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M
+  });
+}
+
+async function startSession(userId) {
+  const startBtn = document.getElementById('startBtn');
+  const restartBtn = document.getElementById('restartBtn');
+  const activeBtn = document.activeElement;
+  if (activeBtn) activeBtn.disabled = true;
+
+  try {
+    const { data: newSession, error } = await sb
+      .from('sessions')
+      .insert({ host_id: userId })
+      .select()
+      .single();
+    if (error) throw error;
+
+    currentSession = newSession;
+    const shareUrl = new URL('game.html', window.location.href);
+    shareUrl.searchParams.set('session', newSession.id);
+    const shareUrlStr = shareUrl.toString();
+
+    document.getElementById('shareUrlText').textContent = shareUrlStr;
+    renderQr(shareUrlStr);
+
+    document.getElementById('sessionEmpty').style.display = 'none';
+    document.getElementById('sessionActive').style.display = 'flex';
+  } catch (e) {
+    showToast('✗ Could not start session — check connection');
+  }
+
+  if (startBtn) { startBtn.disabled = false; }
+  if (restartBtn) { restartBtn.disabled = false; }
+}
+
+async function init() {
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) {
+    location.replace('index.html');
+    return;
+  }
+
+  document.getElementById('userEmail').textContent = session.user.email || '';
+
+  document.getElementById('logoutBtn').addEventListener('click', async () => {
+    await sb.auth.signOut();
+    location.replace('index.html');
+  });
+
+  document.getElementById('phraseBox').addEventListener('input', updateCounter);
+  document.getElementById('saveBtn').addEventListener('click', () => savePhrases(session.user.id));
+
+  document.getElementById('startBtn').addEventListener('click', () => startSession(session.user.id));
+  document.getElementById('restartBtn').addEventListener('click', () => startSession(session.user.id));
+
+  document.getElementById('copyBtn').addEventListener('click', async () => {
+    if (!currentSession) return;
+    const shareUrl = new URL('game.html', window.location.href);
+    shareUrl.searchParams.set('session', currentSession.id);
+    try {
+      await navigator.clipboard.writeText(shareUrl.toString());
+      showToast('Link copied');
+    } catch (e) {
+      showToast('✗ Could not copy link');
+    }
+  });
+
+  document.getElementById('qrcode').addEventListener('click', () => {
+    document.getElementById('qrOverlay').classList.add('open');
+  });
+  document.getElementById('qrOverlayClose').addEventListener('click', () => {
+    document.getElementById('qrOverlay').classList.remove('open');
+  });
+  document.getElementById('qrOverlay').addEventListener('click', (e) => {
+    if (e.target.id === 'qrOverlay') document.getElementById('qrOverlay').classList.remove('open');
+  });
+
+  await loadPhrases(session.user.id);
+}
+
+init();
+</script>
+</body>
+</html>

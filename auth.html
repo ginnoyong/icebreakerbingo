@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Signing in… — Icebreaker Bingo</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .page { justify-content: center; align-items: center; padding: 16px; }
+    .auth-card {
+      display: flex; flex-direction: column; align-items: center; gap: 14px;
+      text-align: center; width: 100%;
+    }
+    .auth-card p { font-size: 0.9rem; color: var(--muted); }
+    #errorBox { display: none; flex-direction: column; align-items: center; gap: 14px; text-align: center; width: 100%; }
+    #errorBox h2 {
+      font-family: 'Syne', sans-serif; font-size: 1.05rem; font-weight: 800; color: var(--orange);
+    }
+    #errorBox p { font-size: 0.85rem; color: var(--muted); line-height: 1.4; }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="card auth-card" id="loadingBox">
+      <div class="spinner"></div>
+      <p>Signing you in…</p>
+    </div>
+    <div class="card" id="errorBox">
+      <h2>Sign-in failed</h2>
+      <p id="errorMessage">Something went wrong while signing you in.</p>
+      <a href="index.html" class="btn btn-primary">Back to login</a>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <script src="config.js"></script>
+  <script>
+    function showError(message) {
+      document.getElementById('loadingBox').style.display = 'none';
+      const errorBox = document.getElementById('errorBox');
+      errorBox.style.display = 'flex';
+      if (message) {
+        document.getElementById('errorMessage').textContent = message;
+      }
+    }
+
+    (async () => {
+      // Check for an OAuth error signaled via query string or hash fragment.
+      const searchParams = new URLSearchParams(window.location.search);
+      const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+
+      const oauthError = searchParams.get('error') || hashParams.get('error');
+      const oauthErrorDescription =
+        searchParams.get('error_description') || hashParams.get('error_description');
+
+      if (oauthError) {
+        showError(oauthErrorDescription || 'Sign-in failed. Please try again.');
+        return;
+      }
+
+      // Try to get the session immediately — the Supabase client may have
+      // already processed the redirect by the time this script runs.
+      const { data: { session } } = await sb.auth.getSession();
+      if (session) {
+        window.location.replace('dashboard.html');
+        return;
+      }
+
+      // Otherwise, fall back to listening for the session to be established
+      // asynchronously by the client's URL detection.
+      const { data: sub } = sb.auth.onAuthStateChange((event, session) => {
+        if (session) {
+          sub.subscription.unsubscribe();
+          window.location.replace('dashboard.html');
+        }
+      });
+
+      // Safety net: if nothing happens within ~6 seconds, show an error.
+      setTimeout(() => {
+        sub.subscription.unsubscribe();
+        if (!window.location.href.includes('dashboard.html')) {
+          showError('Sign-in is taking longer than expected — please try again.');
+        }
+      }, 6000);
+    })();
+  </script>
+</body>
+</html>

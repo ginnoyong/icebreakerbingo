@@ -2,7 +2,10 @@ https://ginnoyong.github.io/icebreakerbingo/
 
 # 🎉 Icebreaker Bingo
 
-A mobile-friendly bingo game for icebreaker activities. Players scan a QR code, get a randomly shuffled card, and find people in the room who match each square. First to get five in a row wins.
+A mobile-friendly bingo game for icebreaker activities. A host signs in with Google, sets up their
+own 24 phrases, and starts a session. Players scan the session's QR code — no account needed — and
+get a randomly shuffled card. Mingle, find someone who matches a square, tap it, and jot their name.
+First to get five in a row wins.
 
 ---
 
@@ -10,59 +13,79 @@ A mobile-friendly bingo game for icebreaker activities. Players scan a QR code, 
 
 | File | Purpose |
 |---|---|
-| `index.html` | The bingo game — share this with players |
-| `admin.html` | Edit the 24 bingo phrases |
-
----
-
-## How to play
-
-1. The host shares the game URL or players scan the QR code on screen
-2. Each player opens it on their phone — the board shuffles randomly for each new visit
-3. Mingle! Find someone who matches a square, tap it, and type their name
-4. First to get five in a row (across, down, or diagonal) wins 🏆
-5. The centre square is a free space
-
----
-
-## Customizing phrases
-
-Go to `/admin.html`, edit the text area (one phrase per line, or separated by semicolons), and tap **Save phrases**. Changes are stored in Supabase and take effect on all devices immediately — no redeployment needed.
-
-There are always exactly **24 phrases** (the 25th square is the free space).
-
----
-
-## Tech stack
-
-- **Frontend:** Vanilla HTML, CSS, JavaScript — no frameworks
-- **Database:** [Supabase](https://supabase.com) — phrases are stored and served from a Supabase Postgres database
-- **Hosting:** GitHub Pages — fully static, no server required
+| `index.html` | Landing page — brief explanation + "Continue with Google" |
+| `auth.html` | Handles the Supabase OAuth redirect, then forwards to `dashboard.html` |
+| `dashboard.html` | Host view — configure your 24 phrases, start a session, get its QR code / link |
+| `game.html` | The bingo board — what players open via the session link or QR code |
+| `config.js` | Shared Supabase config + default phrases, loaded by every page |
+| `style.css` | Shared visual tokens and components, loaded by every page |
 
 ---
 
 ## How it works
 
-`index.html` fetches the current phrases from Supabase on load, then shuffles them into a unique card using a seed stored in the URL. Sharing the same URL gives everyone the same shuffled layout; a fresh visit generates a new one.
+1. A host visits `index.html` and signs in with Google (Supabase Auth).
+2. On `dashboard.html`, the host edits their 24 phrases (one per line, or semicolon-separated) and
+   saves — this upserts a row in the `user_phrases` table keyed by their user id.
+3. The host clicks **Start Session**, which inserts a row into the `sessions` table and produces a
+   shareable URL (`game.html?session=<id>`) plus a QR code for it.
+4. Players open that URL or scan the code — no login required. `game.html` reads the `session` id,
+   looks up the session's `host_id`, fetches that host's phrases from `user_phrases`, and builds a
+   board. Each visit shuffles independently using a random seed stored in the URL — reshuffling
+   changes the seed (and the URL), so the same URL always reproduces the same layout.
 
-`admin.html` reads the current phrases from Supabase into a text area and writes them back on save via a `PATCH` request.
+---
+
+## Tech stack
+
+- **Frontend:** Vanilla HTML, CSS, JavaScript — no frameworks, no build step
+- **Auth:** [Supabase Auth](https://supabase.com/docs/guides/auth) — Google OAuth only
+- **Database:** [Supabase](https://supabase.com) Postgres, with Row Level Security
+- **QR codes:** [qrcodejs](https://github.com/davidshimjs/qrcodejs) via CDN
+- **Hosting:** GitHub Pages — fully static, no server required
+
+---
+
+## Database schema
+
+Two tables, both with RLS enabled:
+
+```sql
+create table user_phrases (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) unique,
+  phrases jsonb not null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table sessions (
+  id uuid primary key default gen_random_uuid(),
+  host_id uuid not null references auth.users(id),
+  created_at timestamptz not null default now()
+);
+```
+
+RLS policies needed:
+- `user_phrases`: authenticated users can `select` / `insert` / `update` only their own row
+  (`user_id = auth.uid()`). Anonymous `select` must also be allowed, since `game.html` reads another
+  user's phrases by `user_id` to build a player's board.
+- `sessions`: authenticated users can `insert` with `host_id = auth.uid()`. Anonymous `select` must
+  be allowed, since `game.html` looks up a session's `host_id` without being logged in.
+
+The anon key is safely embedded in the frontend — RLS is what keeps each host's writes scoped to
+their own row. Never put the Supabase **service role** key in any HTML file.
 
 ---
 
 ## Setup (if forking this repo)
 
-1. Create a [Supabase](https://supabase.com) project
-2. Run this in the SQL Editor:
-
-```sql
-create table phrases (
-  id integer primary key,
-  data jsonb not null
-);
-
-insert into phrases (id, data) values (1, '["Phrase 1","Phrase 2"]'::jsonb);
-```
-
-3. Go to **Project Settings → API** and copy your **Project URL** and **anon public key**
-4. Replace `SUPABASE_URL` and `SUPABASE_KEY` in both `index.html` and `admin.html`
-5. Push to GitHub and enable GitHub Pages under **Settings → Pages**
+1. Create a [Supabase](https://supabase.com) project and run the schema above in the SQL Editor,
+   along with matching RLS policies.
+2. Under **Authentication → Providers**, enable Google and configure the OAuth client (Google Cloud
+   Console → OAuth consent screen + Web application credentials).
+3. Under **Authentication → URL Configuration**, add your deployed `auth.html` URL (e.g.
+   `https://<user>.github.io/<repo>/auth.html`) to the allowed redirect URLs.
+4. Go to **Project Settings → API** and copy your **Project URL** and **anon public key** into
+   `SUPABASE_URL` / `SUPABASE_KEY` in `config.js`.
+5. Push to GitHub and enable GitHub Pages under **Settings → Pages**.
