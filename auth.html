@@ -54,7 +54,7 @@
         searchParams.get('error_description') || hashParams.get('error_description');
 
       if (oauthError) {
-        showError(oauthErrorDescription || 'Sign-in failed. Please try again.');
+        window.location.replace('index.html?hint=true');
         return;
       }
 
@@ -72,11 +72,13 @@
         }
       });
 
-      // Safety net: if nothing happens within ~6 seconds, show an error.
+      // Safety net: if nothing happens within ~6 seconds, redirect back to the
+      // login page with a hint about extensions that might be blocking sign-in.
       setTimeout(() => {
         if (!redirected) {
+          redirected = true;
           sub.subscription.unsubscribe();
-          showError('Sign-in is taking longer than expected — please try again.');
+          window.location.replace('index.html?hint=true');
         }
       }, 6000);
     })();

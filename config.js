@@ -17,4 +17,14 @@ const DEFAULT_PHRASES = [
 ];
 
 // Global Supabase client instance — reuse this everywhere, never call createClient() again.
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+// flowType: 'pkce' exchanges a short-lived code for the session server-side, so the
+// access token never appears in the URL (unlike the default implicit flow's #access_token=...).
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+  auth: {
+    persistSession: true,
+    storage: window.localStorage,
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+    flowType: 'pkce'
+  }
+});

@@ -24,8 +24,10 @@
   .btn-google .btn-google-label { display: inline-flex; align-items: center; gap: 10px; }
 
   .auth-note {
-    font-size: 0.72rem; color: var(--muted); line-height: 1.5;
+    display: none;
+    font-size: 0.68rem; color: var(--muted); line-height: 1.5;
     margin-top: 14px;
+    text-align: left;
   }
 </style>
 </head>
@@ -33,7 +35,10 @@
 
 <div class="page">
   <div class="card landing-card">
-    <div class="emoji-title">🎉 Icebreaker Bingo</div>
+    <div class="emoji-title">
+      <img src="logo.svg" alt="Icebreaker Bingo logo" width="72" height="72" style="display:block;margin:0 auto 10px;">
+      Icebreaker Bingo
+    </div>
     <p class="blurb">
       A mobile-friendly bingo icebreaker for mingling in person. Hosts create their own set of 24 phrases
       and start a session; players join instantly via a shared link or QR code — no account needed — and
@@ -50,7 +55,7 @@
         <span id="googleBtnText">Continue with Google</span>
       </span>
     </button>
-    <p class="auth-note">If sign-in keeps failing, try opening this page in a private or incognito browser window. Some browser extensions — such as anti-tracking, ad blockers, or privacy tools — may interfere with the OAuth authentication flow by blocking cross-origin storage access required to establish your session.</p>
+    <p class="auth-note" id="authNote">ⓘ If sign-in keeps failing, try opening this page in a private or incognito browser window. Some browser extensions — such as anti-tracking, ad blockers, or privacy tools — may interfere with the OAuth authentication flow by blocking cross-origin storage access required to establish your session.</p>
   </div>
 </div>
 
@@ -59,6 +64,12 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="config.js"></script>
 <script>
+  const hint = new URLSearchParams(window.location.search).get('hint');
+  if (hint) {
+    document.getElementById('authNote').style.display = 'block';
+    history.replaceState({}, '', 'index.html');
+  }
+
   const toastEl = document.getElementById('toast');
   function showToast(msg) {
     toastEl.textContent = msg;
