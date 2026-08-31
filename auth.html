@@ -58,36 +58,23 @@
         return;
       }
 
-      // Re-confirm the session via getSession() (with a short retry loop) before
-      // redirecting, in case onAuthStateChange fires before the session is fully
-      // persisted to storage.
-      const waitForSession = async (retries = 5, delayMs = 300) => {
-        for (let i = 0; i < retries; i++) {
-          const { data: { session } } = await sb.auth.getSession();
-          if (session) return session;
-          await new Promise(r => setTimeout(r, delayMs));
-        }
-        return null;
-      };
-
-      let handled = false;
-      const { data: sub } = sb.auth.onAuthStateChange(async (event, session) => {
-        if (!session || handled) return;
-        handled = true;
-        sub.subscription.unsubscribe();
-
-        const confirmed = await waitForSession();
-        if (confirmed) {
+      // Listen for the session BEFORE doing anything else — the SDK only fires
+      // this once it has fully processed and persisted the session (including
+      // the very fast case where a Google session already exists), so waiting
+      // for the event instead of polling getSession() avoids redirecting to
+      // dashboard.html before the session is actually saved to storage.
+      let redirected = false;
+      const { data: sub } = sb.auth.onAuthStateChange((event, session) => {
+        if (session && !redirected) {
+          redirected = true;
+          sub.subscription.unsubscribe();
           window.location.replace('dashboard.html');
-        } else {
-          showError('Sign-in is taking longer than expected — please try again.');
         }
       });
 
       // Safety net: if nothing happens within ~6 seconds, show an error.
       setTimeout(() => {
-        if (!handled) {
-          handled = true;
+        if (!redirected) {
           sub.subscription.unsubscribe();
           showError('Sign-in is taking longer than expected — please try again.');
         }

@@ -22,6 +22,11 @@
   }
   .btn-google svg { width: 20px; height: 20px; flex-shrink: 0; }
   .btn-google .btn-google-label { display: inline-flex; align-items: center; gap: 10px; }
+
+  .auth-note {
+    font-size: 0.72rem; color: var(--muted); line-height: 1.5;
+    margin-top: 14px;
+  }
 </style>
 </head>
 <body>
@@ -45,6 +50,7 @@
         <span id="googleBtnText">Continue with Google</span>
       </span>
     </button>
+    <p class="auth-note">If sign-in keeps failing, try opening this page in a private or incognito browser window. Some browser extensions — such as anti-tracking, ad blockers, or privacy tools — may interfere with the OAuth authentication flow by blocking cross-origin storage access required to establish your session.</p>
   </div>
 </div>
 
