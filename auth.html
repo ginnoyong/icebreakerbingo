@@ -44,7 +44,7 @@
       }
     }
 
-    (async () => {
+    (() => {
       // Check for an OAuth error signaled via query string or hash fragment.
       const searchParams = new URLSearchParams(window.location.search);
       const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
@@ -58,27 +58,37 @@
         return;
       }
 
-      // Try to get the session immediately — the Supabase client may have
-      // already processed the redirect by the time this script runs.
-      const { data: { session } } = await sb.auth.getSession();
-      if (session) {
-        window.location.replace('dashboard.html');
-        return;
-      }
+      // Re-confirm the session via getSession() (with a short retry loop) before
+      // redirecting, in case onAuthStateChange fires before the session is fully
+      // persisted to storage.
+      const waitForSession = async (retries = 5, delayMs = 300) => {
+        for (let i = 0; i < retries; i++) {
+          const { data: { session } } = await sb.auth.getSession();
+          if (session) return session;
+          await new Promise(r => setTimeout(r, delayMs));
+        }
+        return null;
+      };
 
-      // Otherwise, fall back to listening for the session to be established
-      // asynchronously by the client's URL detection.
-      const { data: sub } = sb.auth.onAuthStateChange((event, session) => {
-        if (session) {
-          sub.subscription.unsubscribe();
+      let handled = false;
+      const { data: sub } = sb.auth.onAuthStateChange(async (event, session) => {
+        if (!session || handled) return;
+        handled = true;
+        sub.subscription.unsubscribe();
+
+        const confirmed = await waitForSession();
+        if (confirmed) {
           window.location.replace('dashboard.html');
+        } else {
+          showError('Sign-in is taking longer than expected — please try again.');
         }
       });
 
       // Safety net: if nothing happens within ~6 seconds, show an error.
       setTimeout(() => {
-        sub.subscription.unsubscribe();
-        if (!window.location.href.includes('dashboard.html')) {
+        if (!handled) {
+          handled = true;
+          sub.subscription.unsubscribe();
           showError('Sign-in is taking longer than expected — please try again.');
         }
       }, 6000);

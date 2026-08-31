@@ -209,12 +209,10 @@ async function startSession(userId) {
   if (restartBtn) { restartBtn.disabled = false; }
 }
 
-async function init() {
-  const { data: { session } } = await sb.auth.getSession();
-  if (!session) {
-    location.replace('index.html');
-    return;
-  }
+let appInitialized = false;
+
+async function initApp(session) {
+  appInitialized = true;
 
   document.getElementById('userEmail').textContent = session.user.email || '';
 
@@ -254,7 +252,28 @@ async function init() {
   await loadPhrases(session.user.id);
 }
 
-init();
+// Drive the auth guard off onAuthStateChange rather than a one-shot getSession()
+// call: right after an OAuth redirect (especially when Google already had an
+// active session, so the exchange finishes almost instantly) a fresh page load's
+// getSession() can be called before the SDK has finished hydrating the session,
+// which was redirecting straight back to index.html. Waiting for the SDK's own
+// definitive INITIAL_SESSION event avoids that race.
+sb.auth.onAuthStateChange((event, session) => {
+  if (event === 'SIGNED_OUT') {
+    location.replace('index.html');
+    return;
+  }
+  if (appInitialized) return;
+  if (event === 'INITIAL_SESSION') {
+    if (session) {
+      initApp(session);
+    } else {
+      location.replace('index.html');
+    }
+  } else if (session) {
+    initApp(session);
+  }
+});
 </script>
 </body>
 </html>
