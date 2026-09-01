@@ -17,6 +17,8 @@ First to get five in a row wins.
 | `auth.html` | Handles the Supabase OAuth redirect, then forwards to `dashboard.html` |
 | `dashboard.html` | Host view — configure your 24 phrases, start a session, get its QR code / link |
 | `game.html` | The bingo board — what players open via the session link or QR code |
+| `privacy.html` | Privacy policy |
+| `terms.html` | Terms of service |
 | `config.js` | Shared Supabase config + default phrases, loaded by every page |
 | `style.css` | Shared visual tokens and components, loaded by every page |
 
