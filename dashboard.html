@@ -27,6 +27,23 @@
 
   .card .btn-large { margin-top: 12px; }
 
+  .ai-generate { margin-bottom: 14px; }
+  input#themeInput {
+    width: 100%; border: 1.5px solid var(--border); border-radius: var(--radius);
+    padding: 12px 14px; font-family: 'DM Sans', sans-serif; font-size: 0.95rem;
+    outline: none; color: var(--text); background: var(--card); appearance: none;
+  }
+  input#themeInput:focus { border-color: var(--orange); }
+  input#themeInput:disabled { opacity: 0.5; }
+  .ai-hint { font-size: 0.72rem; color: var(--muted); margin-top: 6px; margin-bottom: 12px; }
+  #generateBtn {
+    width: 100%; padding: 13px; border-radius: 12px; border: none; font-family: 'Syne', sans-serif;
+    font-weight: 800; font-size: 0.9rem; background: var(--orange); color: #fff;
+    touch-action: manipulation; cursor: pointer;
+  }
+  #generateBtn:active { background: var(--orange-dk); transform: scale(0.98); }
+  #generateBtn:disabled { background: #ccc; cursor: not-allowed; transform: none; }
+
   .session-empty p.sub { font-size: 0.8rem; color: var(--muted); margin-bottom: 12px; line-height: 1.4; }
 
   .session-active { display: flex; flex-direction: column; gap: 12px; }
@@ -56,6 +73,11 @@
   <div class="body">
     <div class="card" id="phrasesCard">
       <h2>Your Phrases</h2>
+      <div class="ai-generate">
+        <input type="text" id="themeInput" placeholder="Describe your group or theme…" disabled>
+        <p class="ai-hint">Be specific for better results</p>
+        <button id="generateBtn" disabled>✨ Generate with AI</button>
+      </div>
       <div class="counter" id="counter"><span>—</span> / 24 phrases</div>
       <textarea id="phraseBox" class="loading" placeholder="Loading phrases…" disabled></textarea>
       <button class="btn-large" id="saveBtn" disabled>Loading…</button>
@@ -136,7 +158,30 @@ async function loadPhrases(userId) {
   const btn = document.getElementById('saveBtn');
   btn.disabled = false;
   btn.textContent = 'Save phrases';
+  document.getElementById('themeInput').disabled = false;
+  document.getElementById('generateBtn').disabled = false;
   updateCounter();
+}
+
+async function generatePhrases() {
+  const themeInput = document.getElementById('themeInput');
+  const genBtn = document.getElementById('generateBtn');
+  const box = document.getElementById('phraseBox');
+
+  genBtn.disabled = true;
+  genBtn.textContent = 'Generating…';
+  try {
+    const { data, error } = await sb.functions.invoke('generate-phrases', {
+      body: { theme: themeInput.value.trim() }
+    });
+    if (error || !data.phrases) throw new Error();
+    box.value = data.phrases.join('\n');
+    updateCounter();
+  } catch (e) {
+    showToast('AI generation failed — please try again');
+  }
+  genBtn.disabled = false;
+  genBtn.textContent = '✨ Generate with AI';
 }
 
 async function savePhrases(userId) {
@@ -223,6 +268,7 @@ async function initApp(session) {
 
   document.getElementById('phraseBox').addEventListener('input', updateCounter);
   document.getElementById('saveBtn').addEventListener('click', () => savePhrases(session.user.id));
+  document.getElementById('generateBtn').addEventListener('click', generatePhrases);
 
   document.getElementById('startBtn').addEventListener('click', () => startSession(session.user.id));
   document.getElementById('restartBtn').addEventListener('click', () => startSession(session.user.id));

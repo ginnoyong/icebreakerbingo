@@ -1,1 +1,4 @@
 OAuth/
+Groq/
+.env.local
+supabase/.temp/
