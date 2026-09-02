@@ -51,12 +51,13 @@ serve(async (req: Request) => {
             role: "system",
             content: `You are generating fun, inclusive icebreaker bingo phrases for a group activity. 
             Phrases should be short (under 8 words), conversational, and relatable to the described group. 
-            Respond with ONLY a JSON array of exactly 24 strings. No explanation, no numbering, no markdown. 
+            Respond with ONLY a JSON array of at least 24 strings — ideally more, since duplicates or
+            near-duplicates will be discarded. No explanation, no numbering, no markdown.
             Example format: ["Has a pet at home", "Loves spicy food", ...]`,
           },
           {
             role: "user",
-            content: `Generate 24 icebreaker bingo phrases for: ${theme}`,
+            content: `Generate at least 24 icebreaker bingo phrases (ideally more) for: ${theme}`,
           },
         ],
       }),
@@ -71,13 +72,27 @@ serve(async (req: Request) => {
     }
 
     const groqData = await groqResponse.json();
-    const content = groqData.choices[0].message.content.trim();
+    let content = groqData.choices[0].message.content.trim();
+
+    // Strip markdown code fences — the model sometimes wraps the array in ```json ... ```
+    content = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+
+    console.log('Groq raw response:', content);
 
     // Parse the JSON array from Groq's response
-    const phrases = JSON.parse(content);
+    let phrases = JSON.parse(content);
 
-    if (!Array.isArray(phrases) || phrases.length !== 24) {
+    if (!Array.isArray(phrases)) {
       return new Response(JSON.stringify({ error: "Unexpected response format from AI" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (phrases.length > 24) {
+      phrases = phrases.slice(0, 24);
+    } else if (phrases.length < 24) {
+      return new Response(JSON.stringify({ error: `AI returned ${phrases.length} phrases instead of 24` }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
