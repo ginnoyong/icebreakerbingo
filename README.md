@@ -18,11 +18,12 @@ wins.
 | `auth.html` | Handles the Supabase OAuth redirect, then forwards to `dashboard.html` |
 | `dashboard.html` | Host view — configure your 24 phrases (by hand or via AI generation), start a session, get its QR code / link |
 | `game.html` | The bingo board — what players open via the session link or QR code |
+| `how-to-use.html` | Step-by-step instructions for hosts and players |
 | `privacy.html` | Privacy policy |
 | `terms.html` | Terms of service |
 | `config.js` | Shared Supabase config + default phrases, loaded by every page |
 | `style.css` | Shared visual tokens and components, loaded by every page |
-| `supabase/functions/generate-phrases/index.ts` | Edge Function — takes a theme string, calls the Groq API, returns 24 phrases |
+| `supabase/functions/generate-phrases/index.ts` | Edge Function — takes a theme, existing phrases, and how many are needed, calls the Groq API, returns new phrases (deduplicated against the existing ones) |
 
 ---
 
@@ -31,8 +32,9 @@ wins.
 1. A host visits `index.html` and signs in with Google (Supabase Auth).
 2. On `dashboard.html`, the host edits their 24 phrases (one per line, or semicolon-separated) and
    saves — this upserts a row in the `user_phrases` table keyed by their user id. Instead of typing
-   phrases by hand, the host can describe their group in the theme field and click **Generate with
-   AI**, which calls the `generate-phrases` Edge Function and fills the textarea with 24 suggestions.
+   phrases by hand, the host can describe their group in the theme field and click **Generate** — this
+   calls the `generate-phrases` Edge Function, which tops up however many phrases are still missing
+   (avoiding duplicates of what's already there), or replaces all 24 if the host confirms.
 3. The host clicks **Start Session**, which inserts a row into the `sessions` table and produces a
    shareable URL (`game.html?session=<id>`) plus a QR code for it.
 4. Players open that URL or scan the code — no login required. `game.html` reads the `session` id,

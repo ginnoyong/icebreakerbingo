@@ -168,3 +168,14 @@ html, body {
   font-size: 0.7rem; color: var(--muted);
 }
 .footer-link a { color: var(--muted); text-decoration: underline; opacity: 0.6; }
+
+/* ── App title "g" figure-ground reversal ── */
+.title-g {
+  color: #FFF7F2;
+  background: #E8521A;
+  border-radius: 6px;
+  padding: 0 6px 3px;
+  display: inline;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}

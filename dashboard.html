@@ -44,6 +44,11 @@
   #generateBtn:active { background: var(--orange-dk); transform: scale(0.98); }
   #generateBtn:disabled { background: #ccc; cursor: not-allowed; transform: none; }
 
+  .phrases-subheader {
+    font-family: 'Syne', sans-serif; font-size: 0.85rem; font-weight: 700;
+    color: var(--orange); margin-top: 16px; margin-bottom: 10px;
+  }
+
   .session-empty p.sub { font-size: 0.8rem; color: var(--muted); margin-bottom: 12px; line-height: 1.4; }
 
   .session-active { display: flex; flex-direction: column; gap: 12px; }
@@ -63,7 +68,7 @@
 <body>
 <div class="page">
   <div class="header">
-    <h1><img src="logo.svg" alt="Icebreaker Bingo logo" width="42" height="42" style="vertical-align:middle;margin-right:8px;"> Icebreaker Bingo</h1>
+    <h1><img src="logo.svg" alt="Icebreaker Bingo logo" width="42" height="42" style="vertical-align:middle;margin-right:8px;"> Icebreaker Bin<span class="title-g">g</span>o</h1>
     <div class="header-sub">
       <span class="email" id="userEmail">&nbsp;</span>
       <button class="btn btn-ghost" id="logoutBtn">Log out</button>
@@ -72,12 +77,13 @@
 
   <div class="body">
     <div class="card" id="phrasesCard">
-      <h2>Your Phrases</h2>
+      <h2>✨ AI Phrase Suggestions</h2>
       <div class="ai-generate">
         <input type="text" id="themeInput" placeholder="Describe your group or theme…" disabled>
         <p class="ai-hint">Be specific for better results</p>
-        <button id="generateBtn" disabled>✨ Generate with AI</button>
+        <button id="generateBtn" disabled>Generate 24 Phrases</button>
       </div>
+      <p class="phrases-subheader">Your Phrases</p>
       <div class="counter" id="counter"><span>—</span> / 24 phrases</div>
       <textarea id="phraseBox" class="loading" placeholder="Loading phrases…" disabled></textarea>
       <button class="btn-large" id="saveBtn" disabled>Loading…</button>
@@ -102,6 +108,7 @@
       </div>
     </div>
   </div>
+  <p class="footer-link"><a href="how-to-use.html">How to Use</a></p>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -127,6 +134,18 @@ function updateCounter() {
   const el = document.getElementById('counter');
   el.innerHTML = '<span>' + n + '</span> / 24 phrases';
   el.className = 'counter' + (n !== 24 ? ' warn' : '');
+}
+
+function updateGenerateBtnLabel() {
+  const n = parsePhrases(document.getElementById('phraseBox').value).length;
+  const genBtn = document.getElementById('generateBtn');
+  if (n === 0) {
+    genBtn.textContent = 'Generate 24 Phrases';
+  } else if (n >= 24) {
+    genBtn.textContent = 'Replace All Phrases';
+  } else {
+    genBtn.textContent = 'Generate ' + (24 - n) + ' Phrases';
+  }
 }
 
 function showToast(msg) {
@@ -161,6 +180,7 @@ async function loadPhrases(userId) {
   document.getElementById('themeInput').disabled = false;
   document.getElementById('generateBtn').disabled = false;
   updateCounter();
+  updateGenerateBtnLabel();
 }
 
 async function generatePhrases() {
@@ -168,20 +188,29 @@ async function generatePhrases() {
   const genBtn = document.getElementById('generateBtn');
   const box = document.getElementById('phraseBox');
 
+  let existingPhrases = parsePhrases(box.value);
+  if (existingPhrases.length >= 24) {
+    const proceed = confirm('Replace all 24 phrases? Your current phrases will be lost.');
+    if (!proceed) return;
+    existingPhrases = [];
+  }
+  const count = 24 - existingPhrases.length;
+  if (count <= 0) return;
+
   genBtn.disabled = true;
   genBtn.textContent = 'Generating…';
   try {
     const { data, error } = await sb.functions.invoke('generate-phrases', {
-      body: { theme: themeInput.value.trim() }
+      body: { theme: themeInput.value.trim(), existing: existingPhrases, count }
     });
     if (error || !data.phrases) throw new Error();
-    box.value = data.phrases.join('\n');
+    box.value = existingPhrases.concat(data.phrases).join('\n');
     updateCounter();
   } catch (e) {
     showToast('AI generation failed — please try again');
   }
   genBtn.disabled = false;
-  genBtn.textContent = '✨ Generate with AI';
+  updateGenerateBtnLabel();
 }
 
 async function savePhrases(userId) {
@@ -266,7 +295,10 @@ async function initApp(session) {
     location.replace('index.html');
   });
 
-  document.getElementById('phraseBox').addEventListener('input', updateCounter);
+  document.getElementById('phraseBox').addEventListener('input', () => {
+    updateCounter();
+    updateGenerateBtnLabel();
+  });
   document.getElementById('saveBtn').addEventListener('click', () => savePhrases(session.user.id));
   document.getElementById('generateBtn').addEventListener('click', generatePhrases);
 

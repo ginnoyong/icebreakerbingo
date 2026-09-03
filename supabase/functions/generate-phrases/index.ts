@@ -15,8 +15,8 @@ serve(async (req: Request) => {
   }
 
   try {
-    // Read the theme from the request body
-    const { theme } = await req.json();
+    // Read the theme, existing phrases, and how many new phrases are needed
+    const { theme, existing, count } = await req.json();
 
     if (!theme || typeof theme !== "string") {
       return new Response(JSON.stringify({ error: "theme is required" }), {
@@ -25,6 +25,17 @@ serve(async (req: Request) => {
       });
     }
 
+    if (typeof count !== "number" || count <= 0) {
+      return new Response(JSON.stringify({ error: "count must be a positive number" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const existingPhrases: string[] = Array.isArray(existing)
+      ? existing.filter((p: unknown): p is string => typeof p === "string" && p.trim().length > 0)
+      : [];
+
     // Get the Groq API key from environment secrets — never hardcoded
     const groqKey = Deno.env.get("GROQ_API_KEY");
     if (!groqKey) {
@@ -32,6 +43,16 @@ serve(async (req: Request) => {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    let systemPrompt = `You are generating fun, inclusive icebreaker bingo phrases for a group activity.
+            Phrases should be short (under 8 words), conversational, and relatable to the described group.
+            Respond with ONLY a JSON array of at least ${count} strings — ideally more, since duplicates or
+            near-duplicates will be discarded. No explanation, no numbering, no markdown.
+            Example format: ["Has a pet at home", "Loves spicy food", ...]`;
+
+    if (existingPhrases.length > 0) {
+      systemPrompt += `\n\nThe following phrases already exist — do not generate any phrase that is the same or similar in meaning to these:\n${JSON.stringify(existingPhrases)}`;
     }
 
     // Call the Groq API
@@ -49,15 +70,11 @@ serve(async (req: Request) => {
         messages: [
           {
             role: "system",
-            content: `You are generating fun, inclusive icebreaker bingo phrases for a group activity. 
-            Phrases should be short (under 8 words), conversational, and relatable to the described group. 
-            Respond with ONLY a JSON array of at least 24 strings — ideally more, since duplicates or
-            near-duplicates will be discarded. No explanation, no numbering, no markdown.
-            Example format: ["Has a pet at home", "Loves spicy food", ...]`,
+            content: systemPrompt,
           },
           {
             role: "user",
-            content: `Generate at least 24 icebreaker bingo phrases (ideally more) for: ${theme}`,
+            content: `Generate at least ${count} icebreaker bingo phrases (ideally more) for: ${theme}`,
           },
         ],
       }),
@@ -80,25 +97,31 @@ serve(async (req: Request) => {
     console.log('Groq raw response:', content);
 
     // Parse the JSON array from Groq's response
-    let phrases = JSON.parse(content);
+    const rawPhrases = JSON.parse(content);
 
-    if (!Array.isArray(phrases)) {
+    if (!Array.isArray(rawPhrases)) {
       return new Response(JSON.stringify({ error: "Unexpected response format from AI" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    if (phrases.length > 24) {
-      phrases = phrases.slice(0, 24);
-    } else if (phrases.length < 24) {
-      return new Response(JSON.stringify({ error: `AI returned ${phrases.length} phrases instead of 24` }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    // Merge against existing phrases, dropping any returned phrase that's identical
+    // to one already in the list (case/whitespace-insensitive), then cap to what's needed.
+    const seen = new Set(existingPhrases.map((p) => p.trim().toLowerCase()));
+    const newPhrases: string[] = [];
+    for (const p of rawPhrases) {
+      if (typeof p !== "string") continue;
+      const key = p.trim().toLowerCase();
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      newPhrases.push(p);
+      if (newPhrases.length === count) break;
     }
+    // If fewer than `count` unique phrases survive deduplication, return what's
+    // available — the caller handles the shortfall gracefully.
 
-    return new Response(JSON.stringify({ phrases }), {
+    return new Response(JSON.stringify({ phrases: newPhrases }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
