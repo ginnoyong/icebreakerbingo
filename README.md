@@ -17,7 +17,7 @@ square, tap it, and jot their name. First to get five in a row wins.
 |---|---|
 | `index.html` | Landing page — brief explanation + "Continue with Google" or "Continue as Guest" |
 | `auth.html` | Handles the Supabase OAuth redirect, then forwards to `dashboard.html` |
-| `dashboard.html` | Host view — configure your 24 phrases (by hand or via AI generation), start a session, get its QR code / link |
+| `dashboard.html` | Host view — configure your 24 phrases (by hand, via AI generation, or by importing a phrase-pack JSON file from your device), start a session, get its QR code / link |
 | `game.html` | The bingo board — what players open via the session link or QR code |
 | `how-to-use.html` | Step-by-step instructions for hosts and players |
 | `privacy.html` | Privacy policy |
@@ -41,7 +41,12 @@ square, tap it, and jot their name. First to get five in a row wins.
    `config.js` (with a hardcoded fallback if that fetch ever fails). Instead of typing phrases by
    hand, the host can describe their group in the theme field and click **Generate** — this calls
    the `generate-phrases` Edge Function, which tops up however many phrases are still missing
-   (avoiding duplicates of what's already there), or replaces all 24 if the host confirms.
+   (avoiding duplicates of what's already there), or replaces all 24 if the host confirms. A host
+   can also click **Import Phrase Pack (.json)** to load a pack file from their own device (e.g.
+   one downloaded from `phrase-packs/`, or from CONTRIBUTING.md's documented format) straight into
+   the phrase box — parsed entirely client-side, nothing is uploaded anywhere. A file with fewer
+   than 24 phrases loads fine; the existing counter/Save validation just blocks saving until the
+   host tops up to exactly 24, same as typing or generating a partial set.
    **Guest hosts skip all of this** — `dashboard.html` detects the `?guest=1` marker and locks the
    phrase box to a read-only preview of the default pack, hiding the AI section and Save button
    entirely. No `sessions` or `user_phrases` row ever exists for a guest.

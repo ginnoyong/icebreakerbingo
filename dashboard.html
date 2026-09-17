@@ -44,6 +44,21 @@
   #generateBtn:active { background: var(--orange-dk); transform: scale(0.98); }
   #generateBtn:disabled { background: #ccc; cursor: not-allowed; transform: none; }
 
+  .ai-divider {
+    display: flex; align-items: center; gap: 10px;
+    margin: 12px 0; font-size: 0.7rem; color: var(--muted);
+  }
+  .ai-divider::before, .ai-divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+  #importBtn {
+    width: 100%; padding: 12px; border-radius: 12px; border: 1.5px solid var(--border);
+    background: transparent; color: var(--muted); cursor: pointer;
+    font-family: 'DM Sans', sans-serif; font-size: 0.85rem; font-weight: 500;
+    touch-action: manipulation; transition: background 0.15s, transform 0.1s;
+  }
+  #importBtn:active { background: #f0e8e4; transform: scale(0.98); }
+  #importBtn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
   .phrases-subheader {
     font-family: 'Syne', sans-serif; font-size: 0.85rem; font-weight: 700;
     color: var(--orange); margin-top: 16px; margin-bottom: 10px;
@@ -89,6 +104,9 @@
         <input type="text" id="themeInput" placeholder="Describe your group or theme…" disabled>
         <p class="ai-hint">Be specific for better results</p>
         <button id="generateBtn" disabled>Generate 24 Phrases</button>
+        <div class="ai-divider">or</div>
+        <input type="file" id="importFileInput" accept="application/json,.json" style="display:none;">
+        <button id="importBtn" type="button" disabled>Import Phrase Pack (.json)</button>
       </div>
       <p class="phrases-subheader" id="phrasesSubheader">Your Phrases</p>
       <div class="counter" id="counter"><span>—</span> / 24 phrases</div>
@@ -200,6 +218,7 @@ async function loadPhrases(userId, isGuest) {
   btn.textContent = 'Save phrases';
   document.getElementById('themeInput').disabled = false;
   document.getElementById('generateBtn').disabled = false;
+  document.getElementById('importBtn').disabled = false;
 }
 
 async function generatePhrases() {
@@ -230,6 +249,48 @@ async function generatePhrases() {
   }
   genBtn.disabled = false;
   updateGenerateBtnLabel();
+}
+
+// Reads a phrase-pack JSON file from the host's own device (see phrase-packs/*.json /
+// CONTRIBUTING.md for the format) and loads it into the textarea. Nothing is uploaded —
+// parsing happens entirely client-side. Fewer than 24 phrases is allowed; the existing
+// counter/Save validation already blocks saving until the host tops up to exactly 24.
+async function importPhrasesFromFile(file) {
+  const box = document.getElementById('phraseBox');
+
+  let parsed;
+  try {
+    parsed = JSON.parse(await file.text());
+  } catch (e) {
+    showToast('✗ Not a valid JSON file');
+    return;
+  }
+
+  if (!parsed || !Array.isArray(parsed.phrases)) {
+    showToast('✗ File must contain a "phrases" array');
+    return;
+  }
+
+  const phrases = parsed.phrases
+    .filter(p => typeof p === 'string' && p.trim().length > 0)
+    .map(p => p.trim());
+
+  if (phrases.length === 0) {
+    showToast('✗ No phrases found in file');
+    return;
+  }
+
+  if (parsePhrases(box.value).length > 0) {
+    const proceed = confirm('Replace your current phrases with this file’s ' + phrases.length + '?');
+    if (!proceed) return;
+  }
+
+  box.value = phrases.join('\n');
+  updateCounter();
+  updateGenerateBtnLabel();
+  showToast(phrases.length === 24
+    ? '✓ Imported 24 phrases'
+    : '✓ Imported ' + phrases.length + ' phrases — top up to 24 to save');
 }
 
 async function savePhrases(userId) {
@@ -344,6 +405,14 @@ async function initApp(session) {
   if (!isGuest) {
     document.getElementById('saveBtn').addEventListener('click', () => savePhrases(session.user.id));
     document.getElementById('generateBtn').addEventListener('click', generatePhrases);
+    document.getElementById('importBtn').addEventListener('click', () => {
+      document.getElementById('importFileInput').click();
+    });
+    document.getElementById('importFileInput').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      e.target.value = ''; // allow re-importing the same filename later
+      if (file) importPhrasesFromFile(file);
+    });
   }
 
   const startHandler = isGuest ? startGuestSession : () => startSession(session.user.id);

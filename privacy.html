@@ -36,7 +36,7 @@
   <a href="index.html" class="back-link">← Back to Icebreaker Bingo</a>
   <div class="card policy-card">
     <h1>Privacy Policy</h1>
-    <p class="updated">Last updated: September 1, 2026</p>
+    <p class="updated">Last updated: September 17, 2026</p>
 
     <p>
       Icebreaker Bingo ("the app") is a free, mobile-friendly bingo game for icebreaker activities.
@@ -44,9 +44,11 @@
     </p>
 
     <h2>Who this applies to</h2>
-    <p>The app has two kinds of users, with very different data footprints:</p>
+    <p>The app has three kinds of users, with very different data footprints:</p>
     <ul>
       <li><strong>Hosts</strong> sign in with Google to create a set of 24 phrases and start a session.</li>
+      <li><strong>Guest hosts</strong> tap "Continue as Guest" to start a session with the app's
+        built-in default phrase pack — no account, sign-in, or personal information involved at all.</li>
       <li><strong>Players</strong> join a session via a shared link or QR code — no account or sign-in required.</li>
     </ul>
 
@@ -54,8 +56,16 @@
     <p><strong>If you sign in as a host:</strong></p>
     <ul>
       <li>Your Google account email address and a unique account ID, provided by Google when you sign in.</li>
-      <li>The 24 phrases you write for your bingo board.</li>
+      <li>The 24 phrases you write, AI-generate, or import from a file for your bingo board. A phrase
+        pack file you import is read and parsed entirely in your browser — it is never uploaded
+        anywhere as a file, only the resulting phrase text is stored if you save it.</li>
       <li>A record of each session you start (a randomly generated session ID and the time it was created).</li>
+    </ul>
+    <p><strong>If you host as a guest:</strong></p>
+    <ul>
+      <li>No account, email, or personal information is collected or requested.</li>
+      <li>Nothing is written to our database — the share link and QR code for a guest-hosted game are
+        generated entirely in your browser, and always point to the same built-in default phrase pack.</li>
     </ul>
     <p><strong>If you join a game as a player:</strong></p>
     <ul>
@@ -82,7 +92,8 @@
       Host account data (email, account ID, phrases, and sessions) is stored in a
       <a href="https://supabase.com" target="_blank" rel="noopener">Supabase</a> database with
       row-level security, so a host can only read and write their own phrases and sessions.
-      The app itself is static and hosted on <a href="https://pages.github.com" target="_blank" rel="noopener">GitHub Pages</a>.
+      Guest-hosted games never reach this database at all — there's no guest account or row to
+      store. The app itself is static and hosted on <a href="https://pages.github.com" target="_blank" rel="noopener">GitHub Pages</a>.
     </p>
 
     <h2>Third-party services</h2>
@@ -105,8 +116,9 @@
     <h2>Children's privacy</h2>
     <p>
       The app is intended for general audiences, including use in classrooms and youth groups.
-      Players never provide any personal information. Hosting (which requires a Google sign-in) is
-      not intended for children without appropriate supervision or consent under applicable law.
+      Players never provide any personal information, and guest hosting involves no sign-in or
+      personal information either. Signing in as a host with a Google account is not intended for
+      children without appropriate supervision or consent under applicable law.
     </p>
 
     <h2>Changes to this policy</h2>

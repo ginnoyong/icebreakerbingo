@@ -12,9 +12,9 @@ You don't need to touch any application code to do this.
 
 A phrase pack is a set of exactly 24 short, fun, inclusive icebreaker phrases for a particular
 group or occasion — for example a school class, a corporate offsite, a wedding, or a youth camp.
-The built-in default set (see `config.js`) is a good example of the tone and specificity to aim
-for: short, concrete, and relatable to the people who'll actually be reading them off a bingo
-card ("Has typed OTW while still at home" rather than "Is often late").
+The built-in default set (`phrase-packs/singapore-school-life.json`) is a good example of the tone
+and specificity to aim for: short, concrete, and relatable to the people who'll actually be
+reading them off a bingo card ("Has typed OTW while still at home" rather than "Is often late").
 
 1. Create a new file under `phrase-packs/`, named for the audience, e.g.
    `phrase-packs/corporate-offsite.json`.
@@ -46,12 +46,14 @@ card ("Has typed OTW while still at home" rather than "Is often late").
 4. Open a pull request with your new file. In the description, say a bit about who the pack is
    for and where you'd use it — that context helps with review.
 
-Note: `phrase-packs/singapore-school-life.json` is the one pack that's actually wired in — it's
-fetched at runtime as the automatic default for any host with no saved phrases yet (see
-`getDefaultPhrases()` in `config.js`). Every other pack in this directory isn't loaded by the app
-itself yet; hosts currently write or AI-generate their own 24 phrases from scratch, or copy one of
-these packs into the dashboard's phrase box by hand. Accepted packs are curated here as a growing
-library, and may inform a future in-app "choose a starter pack" picker.
+`phrase-packs/singapore-school-life.json` is the one pack wired in as the automatic default —
+it's fetched at runtime for any host with no saved phrases yet (see `getDefaultPhrases()` in
+`config.js`). Every other pack in this directory isn't loaded automatically, but any signed-in
+host can use it: download the pack's `.json` file from this repo, then use the dashboard's
+**Import Phrase Pack (.json)** button to load it straight into their phrase box (from there,
+**Save phrases** persists it same as if they'd typed it by hand). So contributing a pack here does
+make it usable by real hosts today, even without an in-app browsing/picker UI — that picker may
+still come later to make discovery easier, but isn't required for a contributed pack to be useful.
 
 ---
 
