@@ -377,14 +377,16 @@ async function loadPhrases() {
     return await getDefaultPhrases();
   }
   try {
-    const { data: sessionRow, error: sErr } = await sb.from('sessions').select('host_id').eq('id', sessionId).single();
-    if (sErr || !sessionRow) {
+    // Looks up the session's host and their phrases in one call, via a database
+    // function rather than reading the sessions/user_phrases tables directly —
+    // see supabase/sql/tighten-anonymous-access.sql for why.
+    const { data, error } = await sb.rpc('get_session_phrases', { p_session_id: sessionId });
+    if (error || !data.session_found) {
       showFatalError('This session could not be found — ask your host for a new link. Showing a default board for now.');
       return await getDefaultPhrases();
     }
-    const { data: phraseRow, error: pErr } = await sb.from('user_phrases').select('phrases').eq('user_id', sessionRow.host_id).maybeSingle();
-    if (!pErr && phraseRow && Array.isArray(phraseRow.phrases) && phraseRow.phrases.length === 24) {
-      return phraseRow.phrases;
+    if (Array.isArray(data.phrases) && data.phrases.length === 24) {
+      return data.phrases;
     }
   } catch (e) {}
   return await getDefaultPhrases();

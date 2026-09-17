@@ -99,13 +99,51 @@ create table sessions (
 
 RLS policies needed:
 - `user_phrases`: authenticated users can `select` / `insert` / `update` only their own row
-  (`user_id = auth.uid()`). Anonymous (unauthenticated) `select` must also be allowed, since
-  `game.html` reads another user's phrases by `user_id` to build a player's board.
-- `sessions`: authenticated users can `insert` with `host_id = auth.uid()`. Anonymous (unauthenticated)
-  `select` must be allowed, since `game.html` looks up a session's `host_id` without being logged in.
+  (`user_id = auth.uid()`).
+- `sessions`: authenticated users can `insert` and `select` only their own row (`host_id = auth.uid()`)
+  — `select` is needed so `dashboard.html`'s `.insert(...).select()` can read back the row it just created.
 
-The anon key is safely embedded in the frontend — RLS is what keeps each host's writes scoped to
-their own row. Never put the Supabase **service role** key in any HTML file.
+Neither table grants anonymous `select` — RLS can't scope "allow reading this row only if the
+caller already knows its ID," since a policy applies to a row regardless of what filter the
+request used. An unconditional anonymous `select` policy (the natural way to satisfy "`game.html`
+needs to read a host's phrases without signing in") would let anyone holding the public anon key
+call the raw REST endpoints with no filter at all and dump every row in both tables. Instead,
+`game.html` looks up a session's board through a single-purpose database function:
+
+```sql
+create or replace function public.get_session_phrases(p_session_id uuid)
+returns jsonb
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select jsonb_build_object(
+    'session_found', exists(select 1 from public.sessions where id = p_session_id),
+    'phrases', (
+      select up.phrases
+      from public.sessions s
+      join public.user_phrases up on up.user_id = s.host_id
+      where s.id = p_session_id
+      limit 1
+    )
+  );
+$$;
+
+grant execute on function public.get_session_phrases(uuid) to anon, authenticated;
+```
+
+`security definer` lets the function read both tables internally regardless of the caller's own
+grants, while the function itself only ever answers for the one session id it's given — there's no
+equivalent of "call it with no arguments to get everything." `set search_path = public` pins name
+resolution against the real schema, closing a known Postgres privilege-escalation pattern where a
+caller could otherwise shadow a table/function name from an earlier schema in their search path.
+See `supabase/sql/tighten-anonymous-access.sql` for the full migration (policies + function) as a
+single script.
+
+The anon key is safely embedded in the frontend — RLS (plus this function for the one thing that
+needs to bypass it narrowly) is what keeps each host's data scoped to their own row. Never put the
+Supabase **service role** key in any HTML file.
 
 Guest hosting (`dashboard.html?guest=1`) never calls Supabase at all — no auth, no `sessions` row,
 no `user_phrases` row — so it needs no RLS considerations of its own.
@@ -115,7 +153,8 @@ no `user_phrases` row — so it needs no RLS considerations of its own.
 ## Setup (if forking this repo)
 
 1. Create a [Supabase](https://supabase.com) project and run the schema above in the SQL Editor,
-   along with matching RLS policies.
+   along with `supabase/sql/tighten-anonymous-access.sql` (RLS policies + the
+   `get_session_phrases` function).
 2. Under **Authentication → Providers**, enable Google and configure the OAuth client (Google Cloud
    Console → OAuth consent screen + Web application credentials).
 3. Under **Authentication → URL Configuration**, add your deployed `auth.html` URL (e.g.
