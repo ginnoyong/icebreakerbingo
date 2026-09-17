@@ -8,10 +8,40 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
+const MAX_COUNT = 24;
+
+// Reads the `role` claim out of the request's JWT without re-verifying the signature —
+// the platform (verify_jwt = true in config.toml) already rejected anything unsigned,
+// expired, or from a different project before this code runs. This just distinguishes
+// the public anon-key role from a real signed-in (`authenticated`) Supabase session, so
+// the public anon key alone — which is unavoidably exposed in the frontend — can't be
+// used to call the Groq-backed endpoint; only hosts who've actually signed in with
+// Google can, since only they see the Generate button anyway.
+function getJwtRole(req: Request): string | null {
+  const authHeader = req.headers.get("Authorization");
+  const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+  const payloadB64 = token?.split(".")[1];
+  if (!payloadB64) return null;
+  try {
+    const base64 = payloadB64.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = base64 + "=".repeat((4 - (base64.length % 4)) % 4);
+    return JSON.parse(atob(padded)).role ?? null;
+  } catch {
+    return null;
+  }
+}
+
 serve(async (req: Request) => {
   // Handle CORS preflight — browsers send this before the real request
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
+  }
+
+  if (getJwtRole(req) !== "authenticated") {
+    return new Response(JSON.stringify({ error: "Sign in required" }), {
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 
   try {
@@ -25,8 +55,8 @@ serve(async (req: Request) => {
       });
     }
 
-    if (typeof count !== "number" || count <= 0) {
-      return new Response(JSON.stringify({ error: "count must be a positive number" }), {
+    if (typeof count !== "number" || count <= 0 || count > MAX_COUNT) {
+      return new Response(JSON.stringify({ error: `count must be between 1 and ${MAX_COUNT}` }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
