@@ -1,0 +1,31 @@
+{
+  "name": "Singapore School Life",
+  "language": "en",
+  "description": "The app's built-in default pack, loaded automatically for any host who hasn't saved their own 24 phrases yet. Everyday moments from Singaporean secondary school / JC life — MRT rides, CCAs, bubble tea, group chats.",
+  "phrases": [
+    "Has more than 2 pets",
+    "Takes more than 1hr to get to school",
+    "Owns a Tamagotchi",
+    "Can speak 3 or more languages",
+    "Has cried watching K-drama before",
+    "Has a part-time job",
+    "Plays Mobile Legends or MLBB",
+    "Has a Spotify student plan",
+    "Has typed OTW while still at home",
+    "Drinks bubble tea 3+ times a week",
+    "Is in the school team of a CCA",
+    "Has a group chat with 50+ members",
+    "Has overslept on an exam day",
+    "Follows local influencers on Instagram",
+    "Has posted a TikTok before",
+    "Has own baby photo(s) in phone",
+    "Can recite parents phone numbers by heart",
+    "Hates durians",
+    "Cannot take spicy food",
+    "Has dozed off on the MRT and missed their stop",
+    "Plays basketball at the void deck",
+    "Has studied for exams at the airport",
+    "Has mistaken a stranger for a friend",
+    "Has more than 250 followers on social media"
+  ]
+}

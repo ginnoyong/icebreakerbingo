@@ -24,6 +24,28 @@
   .btn-google svg { width: 20px; height: 20px; flex-shrink: 0; }
   .btn-google .btn-google-label { display: inline-flex; align-items: center; gap: 10px; }
 
+  .or-divider {
+    display: flex; align-items: center; gap: 10px;
+    margin: 14px 0; font-size: 0.72rem; color: var(--muted);
+  }
+  .or-divider::before, .or-divider::after {
+    content: ''; flex: 1; height: 1px; background: var(--border);
+  }
+
+  .btn-guest {
+    width: 100%; padding: 13px; border-radius: 12px; border: 1.5px solid var(--border);
+    background: transparent; color: var(--muted); cursor: pointer;
+    font-family: 'DM Sans', sans-serif; font-size: 0.88rem; font-weight: 500;
+    touch-action: manipulation; transition: background 0.15s, transform 0.1s;
+  }
+  .btn-guest:active { background: #f0e8e4; transform: scale(0.98); }
+  .btn-guest:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+  .guest-hint {
+    font-size: 0.68rem; color: var(--muted); line-height: 1.5;
+    margin-top: 10px;
+  }
+
   .auth-note {
     display: none;
     font-size: 0.68rem; color: var(--muted); line-height: 1.5;
@@ -57,6 +79,12 @@
       </span>
     </button>
     <p class="auth-note" id="authNote">ⓘ If sign-in keeps failing, try opening this page in a private or incognito browser window. Some browser extensions — such as anti-tracking, ad blockers, or privacy tools — may interfere with the OAuth authentication flow by blocking cross-origin storage access required to establish your session.</p>
+    <div class="or-divider">or</div>
+    <button class="btn-guest" id="guestBtn" type="button">
+      <span id="guestBtnText">Continue as Guest</span>
+    </button>
+    <p class="guest-hint">Guests can host with the built-in default phrase pack, no account needed.
+      Sign in with Google to write your own phrases or generate them with AI.</p>
   </div>
   <p class="footer-link"><a href="privacy.html">Privacy Policy</a> · <a href="terms.html">Terms of Service</a></p>
 </div>
@@ -108,6 +136,12 @@
       googleBtn.disabled = false;
       googleBtnText.textContent = 'Continue with Google';
     }
+  });
+
+  // Guests never touch Supabase Auth at all — dashboard.html?guest=1 renders the
+  // read-only default-pack view entirely client-side, no sign-in step of any kind.
+  document.getElementById('guestBtn').addEventListener('click', () => {
+    location.href = 'dashboard.html?guest=1';
   });
 </script>
 </body>

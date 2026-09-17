@@ -179,7 +179,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="config.js"></script>
 <script>
-let phrases = [...DEFAULT_PHRASES];
+let phrases = [];
 let shuffled = [];
 let marks = new Array(25).fill(false);
 let notes = new Array(25).fill("");
@@ -369,22 +369,25 @@ function showFatalError(msg) {
 async function loadPhrases() {
   const params = new URLSearchParams(window.location.search);
   const sessionId = params.get('session');
+  const isGuestLink = params.get('guest') === '1';
   if (!sessionId) {
-    showFatalError('No session specified — ask your host for the game link or QR code. Showing a default board for now.');
-    return [...DEFAULT_PHRASES];
+    if (!isGuestLink) {
+      showFatalError('No session specified — ask your host for the game link or QR code. Showing a default board for now.');
+    }
+    return await getDefaultPhrases();
   }
   try {
     const { data: sessionRow, error: sErr } = await sb.from('sessions').select('host_id').eq('id', sessionId).single();
     if (sErr || !sessionRow) {
       showFatalError('This session could not be found — ask your host for a new link. Showing a default board for now.');
-      return [...DEFAULT_PHRASES];
+      return await getDefaultPhrases();
     }
     const { data: phraseRow, error: pErr } = await sb.from('user_phrases').select('phrases').eq('user_id', sessionRow.host_id).maybeSingle();
     if (!pErr && phraseRow && Array.isArray(phraseRow.phrases) && phraseRow.phrases.length === 24) {
       return phraseRow.phrases;
     }
   } catch (e) {}
-  return [...DEFAULT_PHRASES];
+  return await getDefaultPhrases();
 }
 
 async function init() {
