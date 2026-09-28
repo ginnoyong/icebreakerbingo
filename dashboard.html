@@ -50,14 +50,15 @@
   }
   .ai-divider::before, .ai-divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
 
-  #importBtn {
+  #importBtn, #exportBtn {
     width: 100%; padding: 12px; border-radius: 12px; border: 1.5px solid var(--border);
     background: transparent; color: var(--muted); cursor: pointer;
     font-family: 'DM Sans', sans-serif; font-size: 0.85rem; font-weight: 500;
     touch-action: manipulation; transition: background 0.15s, transform 0.1s;
   }
-  #importBtn:active { background: #f0e8e4; transform: scale(0.98); }
-  #importBtn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+  #importBtn:active, #exportBtn:active { background: #f0e8e4; transform: scale(0.98); }
+  #importBtn:disabled, #exportBtn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+  #exportBtn { margin-top: 10px; }
 
   .phrases-subheader {
     font-family: 'Syne', sans-serif; font-size: 0.85rem; font-weight: 700;
@@ -137,6 +138,7 @@
       <div class="counter" id="counter"><span>—</span> / 24 phrases</div>
       <textarea id="phraseBox" class="loading" placeholder="Loading phrases…" disabled></textarea>
       <button class="btn-large" id="saveBtn" disabled>Loading…</button>
+      <button id="exportBtn" type="button" disabled>Export Phrase Pack (.json)</button>
       <p class="guest-note" id="guestNote" style="display:none;">
         You're hosting as a guest, so you're set up with the default phrase pack shown above.
         <a href="index.html">Sign in with Google</a> to write your own phrases or generate them with AI.
@@ -260,10 +262,12 @@ async function loadPhrases(userId, isGuest) {
   box.classList.remove('loading');
   updateCounter();
   updateGenerateBtnLabel();
+  document.getElementById('exportBtn').disabled = false;
 
   if (isGuest) {
     // Guests only ever see the default pack — leave the textarea disabled (read-only preview),
-    // and never enable saving/AI generation for them.
+    // and never enable saving/AI generation for them. Exporting is still fine, since it's just
+    // a client-side download of what's already shown on screen.
     return;
   }
   box.disabled = false;
@@ -348,6 +352,41 @@ async function importPhrasesFromFile(file) {
   showToast(phrases.length === target
     ? '✓ Imported ' + target + ' phrases'
     : '✓ Imported ' + phrases.length + ' phrases — top up to ' + target + ' to save');
+}
+
+// Downloads whatever is currently in the textarea as a phrase-pack .json file, in the same
+// shape CONTRIBUTING.md / phrase-packs/*.json use, so it round-trips through Import elsewhere
+// (another device, another host, or a future session). Entirely client-side — nothing is sent
+// anywhere. Works at any phrase count, not just a complete board, so a work-in-progress list
+// can be saved and picked up again later via Import.
+function slugify(s) {
+  return s.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'phrase-pack';
+}
+
+function exportPhrasePack() {
+  const phrases = parsePhrases(document.getElementById('phraseBox').value);
+  if (phrases.length === 0) {
+    showToast('✗ No phrases to export');
+    return;
+  }
+  const theme = document.getElementById('themeInput').value.trim();
+  const name = theme || 'Custom Phrase Pack';
+  const pack = {
+    name,
+    language: 'en',
+    description: 'Exported from Icebreaker Bingo on ' + new Date().toISOString().slice(0, 10) + '.',
+    phrases
+  };
+  const blob = new Blob([JSON.stringify(pack, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = slugify(name) + '.json';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  showToast('✓ Exported ' + phrases.length + ' phrases');
 }
 
 async function savePhrases(userId) {
@@ -464,6 +503,7 @@ async function initApp(session) {
   document.querySelectorAll('.size-btn').forEach(btn => {
     btn.addEventListener('click', () => setBoardSize(Number(btn.dataset.size)));
   });
+  document.getElementById('exportBtn').addEventListener('click', exportPhrasePack);
   if (!isGuest) {
     document.getElementById('saveBtn').addEventListener('click', () => savePhrases(session.user.id));
     document.getElementById('generateBtn').addEventListener('click', generatePhrases);
