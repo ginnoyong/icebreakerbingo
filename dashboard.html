@@ -50,19 +50,37 @@
   }
   .ai-divider::before, .ai-divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
 
-  #importBtn {
+  #importBtn, #exportBtn {
     width: 100%; padding: 12px; border-radius: 12px; border: 1.5px solid var(--border);
     background: transparent; color: var(--muted); cursor: pointer;
     font-family: 'DM Sans', sans-serif; font-size: 0.85rem; font-weight: 500;
     touch-action: manipulation; transition: background 0.15s, transform 0.1s;
   }
-  #importBtn:active { background: #f0e8e4; transform: scale(0.98); }
-  #importBtn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+  #importBtn:active, #exportBtn:active { background: #f0e8e4; transform: scale(0.98); }
+  #importBtn:disabled, #exportBtn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+  #exportBtn { margin-top: 10px; }
 
   .phrases-subheader {
     font-family: 'Syne', sans-serif; font-size: 0.85rem; font-weight: 700;
     color: var(--orange); margin-top: 16px; margin-bottom: 10px;
   }
+
+  .board-size-section { margin-bottom: 14px; }
+  .board-size-label {
+    font-family: 'Syne', sans-serif; font-size: 0.78rem; font-weight: 700;
+    color: var(--muted); margin-bottom: 8px;
+  }
+  .size-toggle { display: flex; gap: 6px; }
+  .size-btn {
+    flex: 1; padding: 10px; border-radius: 10px; border: 1.5px solid var(--border);
+    background: var(--card); color: var(--muted);
+    font-family: 'Syne', sans-serif; font-weight: 700; font-size: 0.85rem;
+    cursor: pointer; touch-action: manipulation;
+    transition: background 0.15s, color 0.15s, border-color 0.15s, transform 0.1s;
+  }
+  .size-btn:active { transform: scale(0.96); }
+  .size-btn.active { background: var(--orange); border-color: var(--orange); color: #fff; }
+  .size-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 
   .session-empty p.sub { font-size: 0.8rem; color: var(--muted); margin-bottom: 12px; line-height: 1.4; }
 
@@ -100,6 +118,14 @@
   <div class="body">
     <div class="card" id="phrasesCard">
       <h2 id="phrasesHeading">✨ AI Phrase Suggestions</h2>
+      <div class="board-size-section" id="boardSizeSection">
+        <p class="board-size-label">Board size</p>
+        <div class="size-toggle" id="sizeToggle">
+          <button type="button" class="size-btn" data-size="3">3×3</button>
+          <button type="button" class="size-btn active" data-size="5">5×5</button>
+          <button type="button" class="size-btn" data-size="7">7×7</button>
+        </div>
+      </div>
       <div class="ai-generate" id="aiGenerateSection">
         <input type="text" id="themeInput" placeholder="Describe your group or theme…" disabled>
         <p class="ai-hint">Be specific for better results</p>
@@ -112,6 +138,7 @@
       <div class="counter" id="counter"><span>—</span> / 24 phrases</div>
       <textarea id="phraseBox" class="loading" placeholder="Loading phrases…" disabled></textarea>
       <button class="btn-large" id="saveBtn" disabled>Loading…</button>
+      <button id="exportBtn" type="button" disabled>Export Phrase Pack (.json)</button>
       <p class="guest-note" id="guestNote" style="display:none;">
         You're hosting as a guest, so you're set up with the default phrase pack shown above.
         <a href="index.html">Sign in with Google</a> to write your own phrases or generate them with AI.
@@ -154,26 +181,53 @@
 <script>
 let currentShareUrl = null;
 
+const VALID_BOARD_SIZES = [3, 5, 7];
+let boardSize = 5;
+
+function targetCount() { return boardSize * boardSize - 1; }
+
+// A saved phrase set only ever comes from one of the supported board sizes
+// (n*n - 1 phrases, n odd) — anything else is stale or corrupt data.
+function sizeForPhraseCount(n) {
+  const size = Math.sqrt(n + 1);
+  return VALID_BOARD_SIZES.includes(size) ? size : null;
+}
+
+function renderBoardSizeButtons() {
+  document.querySelectorAll('.size-btn').forEach(btn => {
+    btn.classList.toggle('active', Number(btn.dataset.size) === boardSize);
+  });
+}
+
+function setBoardSize(n) {
+  boardSize = n;
+  renderBoardSizeButtons();
+  updateCounter();
+  updateGenerateBtnLabel();
+}
+
 function parsePhrases(text) {
   return text.split(/[;\n]+/).map(p => p.trim()).filter(Boolean);
 }
 
 function updateCounter() {
   const n = parsePhrases(document.getElementById('phraseBox').value).length;
+  const target = targetCount();
   const el = document.getElementById('counter');
-  el.innerHTML = '<span>' + n + '</span> / 24 phrases';
-  el.className = 'counter' + (n !== 24 ? ' warn' : '');
+  el.innerHTML = '<span>' + n + '</span> / ' + target + ' phrases';
+  el.className = 'counter' + (n !== target ? ' warn' : '');
 }
 
 function updateGenerateBtnLabel() {
   const n = parsePhrases(document.getElementById('phraseBox').value).length;
+  const target = targetCount();
   const genBtn = document.getElementById('generateBtn');
   if (n === 0) {
-    genBtn.textContent = 'Generate 24 Phrases';
-  } else if (n >= 24) {
+    genBtn.textContent = 'Generate ' + target + ' Phrases';
+  } else if (n >= target) {
     genBtn.textContent = 'Replace All Phrases';
   } else {
-    genBtn.textContent = 'Generate ' + (24 - n) + ' Phrases';
+    genBtn.textContent = 'Generate ' + (target - n) + ' Phrases';
   }
 }
 
@@ -195,21 +249,25 @@ async function loadPhrases(userId, isGuest) {
         .select('phrases')
         .eq('user_id', userId)
         .maybeSingle();
-      if (!error && data && Array.isArray(data.phrases) && data.phrases.length === 24) {
+      if (!error && data && Array.isArray(data.phrases) && sizeForPhraseCount(data.phrases.length)) {
         phrases = data.phrases;
+        boardSize = sizeForPhraseCount(data.phrases.length);
       }
     } catch (e) {
       // fall back to defaults
     }
   }
+  renderBoardSizeButtons();
   box.value = phrases.join('\n');
   box.classList.remove('loading');
   updateCounter();
   updateGenerateBtnLabel();
+  document.getElementById('exportBtn').disabled = false;
 
   if (isGuest) {
     // Guests only ever see the default pack — leave the textarea disabled (read-only preview),
-    // and never enable saving/AI generation for them.
+    // and never enable saving/AI generation for them. Exporting is still fine, since it's just
+    // a client-side download of what's already shown on screen.
     return;
   }
   box.disabled = false;
@@ -226,13 +284,14 @@ async function generatePhrases() {
   const genBtn = document.getElementById('generateBtn');
   const box = document.getElementById('phraseBox');
 
+  const target = targetCount();
   let existingPhrases = parsePhrases(box.value);
-  if (existingPhrases.length >= 24) {
-    const proceed = confirm('Replace all 24 phrases? Your current phrases will be lost.');
+  if (existingPhrases.length >= target) {
+    const proceed = confirm('Replace all ' + target + ' phrases? Your current phrases will be lost.');
     if (!proceed) return;
     existingPhrases = [];
   }
-  const count = 24 - existingPhrases.length;
+  const count = target - existingPhrases.length;
   if (count <= 0) return;
 
   genBtn.disabled = true;
@@ -253,8 +312,9 @@ async function generatePhrases() {
 
 // Reads a phrase-pack JSON file from the host's own device (see phrase-packs/*.json /
 // CONTRIBUTING.md for the format) and loads it into the textarea. Nothing is uploaded —
-// parsing happens entirely client-side. Fewer than 24 phrases is allowed; the existing
-// counter/Save validation already blocks saving until the host tops up to exactly 24.
+// parsing happens entirely client-side. Fewer phrases than the current board size needs
+// is allowed; the existing counter/Save validation already blocks saving until the host
+// tops up to the exact count.
 async function importPhrasesFromFile(file) {
   const box = document.getElementById('phraseBox');
 
@@ -288,15 +348,52 @@ async function importPhrasesFromFile(file) {
   box.value = phrases.join('\n');
   updateCounter();
   updateGenerateBtnLabel();
-  showToast(phrases.length === 24
-    ? '✓ Imported 24 phrases'
-    : '✓ Imported ' + phrases.length + ' phrases — top up to 24 to save');
+  const target = targetCount();
+  showToast(phrases.length === target
+    ? '✓ Imported ' + target + ' phrases'
+    : '✓ Imported ' + phrases.length + ' phrases — top up to ' + target + ' to save');
+}
+
+// Downloads whatever is currently in the textarea as a phrase-pack .json file, in the same
+// shape CONTRIBUTING.md / phrase-packs/*.json use, so it round-trips through Import elsewhere
+// (another device, another host, or a future session). Entirely client-side — nothing is sent
+// anywhere. Works at any phrase count, not just a complete board, so a work-in-progress list
+// can be saved and picked up again later via Import.
+function slugify(s) {
+  return s.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'phrase-pack';
+}
+
+function exportPhrasePack() {
+  const phrases = parsePhrases(document.getElementById('phraseBox').value);
+  if (phrases.length === 0) {
+    showToast('✗ No phrases to export');
+    return;
+  }
+  const theme = document.getElementById('themeInput').value.trim();
+  const name = theme || 'Custom Phrase Pack';
+  const pack = {
+    name,
+    language: 'en',
+    description: 'Exported from Icebreaker Bingo on ' + new Date().toISOString().slice(0, 10) + '.',
+    phrases
+  };
+  const blob = new Blob([JSON.stringify(pack, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = slugify(name) + '.json';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  showToast('✓ Exported ' + phrases.length + ' phrases');
 }
 
 async function savePhrases(userId) {
+  const target = targetCount();
   const phrases = parsePhrases(document.getElementById('phraseBox').value);
-  if (phrases.length !== 24) {
-    showToast('⚠ Need exactly 24 phrases (have ' + phrases.length + ')');
+  if (phrases.length !== target) {
+    showToast('⚠ Need exactly ' + target + ' phrases (have ' + phrases.length + ')');
     return;
   }
   const btn = document.getElementById('saveBtn');
@@ -379,6 +476,7 @@ let appInitialized = false;
 
 function applyGuestMode() {
   document.getElementById('phrasesHeading').textContent = '📋 Default Phrases';
+  document.getElementById('boardSizeSection').style.display = 'none';
   document.getElementById('aiGenerateSection').style.display = 'none';
   document.getElementById('phrasesSubheader').style.display = 'none';
   document.getElementById('saveBtn').style.display = 'none';
@@ -402,6 +500,10 @@ async function initApp(session) {
     updateCounter();
     updateGenerateBtnLabel();
   });
+  document.querySelectorAll('.size-btn').forEach(btn => {
+    btn.addEventListener('click', () => setBoardSize(Number(btn.dataset.size)));
+  });
+  document.getElementById('exportBtn').addEventListener('click', exportPhrasePack);
   if (!isGuest) {
     document.getElementById('saveBtn').addEventListener('click', () => savePhrases(session.user.id));
     document.getElementById('generateBtn').addEventListener('click', generatePhrases);
