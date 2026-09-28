@@ -8,7 +8,7 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const MAX_COUNT = 24;
+const MAX_COUNT = 48; // 7×7 board, the largest supported size (7*7 - 1 phrases)
 
 // Reads the `role` claim out of the request's JWT without re-verifying the signature —
 // the platform (verify_jwt = true in config.toml) already rejected anything unsigned,
@@ -94,7 +94,7 @@ serve(async (req: Request) => {
       },
       body: JSON.stringify({
         model: "openai/gpt-oss-20b",
-        max_tokens: 2000,
+        max_tokens: 4000, // headroom for the 48-phrase (7×7 board) case
         temperature: 0.8,
         reasoning_effort: "low",
         messages: [

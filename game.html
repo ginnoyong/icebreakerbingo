@@ -130,7 +130,7 @@
   <div class="header">
     <h1><img src="logo.svg" alt="Icebreaker Bingo logo" width="42" height="42" style="vertical-align:middle;margin-right:8px;"> Icebreaker Bin<span class="title-g">g</span>o</h1>
     <div class="header-sub">
-      <div class="count-badge">Matched: <span id="count">0</span>/24</div>
+      <div class="count-badge">Matched: <span id="count">0</span>/<span id="totalCount">24</span></div>
       <div class="top-btns">
         <button class="btn btn-ghost" onclick="resetMarks()">Clear</button>
         <button class="btn btn-primary" onclick="reshuffleBoard()">Reshuffle ↺</button>
@@ -146,7 +146,7 @@
 
   <div class="win-banner" id="winBanner">
     <h2>🏆 BINGO!</h2>
-    <p>Five in a row — you're an icebreaker legend!</p>
+    <p id="winBannerText">Five in a row — you're an icebreaker legend!</p>
   </div>
 </div>
 
@@ -179,11 +179,44 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="config.js"></script>
 <script>
+const VALID_BOARD_SIZES = [3, 5, 7];
+
 let phrases = [];
 let shuffled = [];
+let boardSize = 5;
+let total = 25;
+let freeIndex = 12;
+let LINES = [];
 let marks = new Array(25).fill(false);
 let notes = new Array(25).fill("");
 let activeCell = null;
+
+// A saved/shared phrase set only ever comes from one of the supported board
+// sizes (n*n - 1 phrases, n odd) — anything else is stale or corrupt data.
+function sizeForPhraseCount(n) {
+  const size = Math.sqrt(n + 1);
+  return VALID_BOARD_SIZES.includes(size) ? size : null;
+}
+
+function buildLines(n) {
+  const lines = [];
+  for (let r = 0; r < n; r++) lines.push(Array.from({ length: n }, (_, c) => r * n + c));
+  for (let c = 0; c < n; c++) lines.push(Array.from({ length: n }, (_, r) => r * n + c));
+  lines.push(Array.from({ length: n }, (_, i) => i * n + i));
+  lines.push(Array.from({ length: n }, (_, i) => i * n + (n - 1 - i)));
+  return lines;
+}
+
+function applyBoardSize(n) {
+  boardSize = n;
+  total = n * n;
+  freeIndex = Math.floor(total / 2);
+  LINES = buildLines(n);
+  document.getElementById('grid').style.gridTemplateColumns = 'repeat(' + n + ', 1fr)';
+  document.getElementById('totalCount').textContent = total - 1;
+  const spelled = { 3: 'Three', 5: 'Five', 7: 'Seven' }[n] || n;
+  document.getElementById('winBannerText').textContent = spelled + ' in a row — you\'re an icebreaker legend!';
+}
 
 function seededShuffle(arr, seed) {
   let a = [...arr], s = seed;
@@ -212,11 +245,11 @@ function getSeed() {
 function buildBoard() {
   const seed = getSeed();
   let pool = seededShuffle(phrases, seed);
-  pool.splice(12, 0, null);
-  shuffled = pool.slice(0, 25);
-  marks = new Array(25).fill(false);
-  notes = new Array(25).fill("");
-  marks[12] = true;
+  pool.splice(freeIndex, 0, null);
+  shuffled = pool.slice(0, total);
+  marks = new Array(total).fill(false);
+  notes = new Array(total).fill("");
+  marks[freeIndex] = true;
   renderGrid();
   updateCount();
   document.getElementById('winBanner').classList.remove('show');
@@ -251,7 +284,7 @@ function renderGrid() {
   grid.innerHTML = '';
   shuffled.forEach((phrase, i) => {
     const cell = document.createElement('div');
-    const isFree = i === 12;
+    const isFree = i === freeIndex;
     cell.className = 'cell' + (isFree ? ' free' : '') + (marks[i] ? ' marked' : '');
     const label = isFree ? '⭐ FREE' : escHtml(phrase || '');
     const note = notes[i] || '';
@@ -304,8 +337,8 @@ function updateCharCount() {
 }
 
 function resetMarks() {
-  marks = new Array(25).fill(false);
-  notes = new Array(25).fill(""); marks[12] = true;
+  marks = new Array(total).fill(false);
+  notes = new Array(total).fill(""); marks[freeIndex] = true;
   renderGrid(); updateCount();
   document.getElementById('winBanner').classList.remove('show');
 }
@@ -313,12 +346,6 @@ function resetMarks() {
 function updateCount() {
   document.getElementById('count').textContent = Math.max(0, marks.filter(Boolean).length - 1);
 }
-
-const LINES = [
-  [0,1,2,3,4],[5,6,7,8,9],[10,11,12,13,14],[15,16,17,18,19],[20,21,22,23,24],
-  [0,5,10,15,20],[1,6,11,16,21],[2,7,12,17,22],[3,8,13,18,23],[4,9,14,19,24],
-  [0,6,12,18,24],[4,8,12,16,20]
-];
 
 function checkWin() {
   if (LINES.some(line => line.every(i => marks[i]))) {
@@ -411,7 +438,7 @@ async function loadPhrases() {
       showFatalError('This session could not be found — ask your host for a new link. Showing a default board for now.');
       return await getDefaultPhrases();
     }
-    if (Array.isArray(data.phrases) && data.phrases.length === 24) {
+    if (Array.isArray(data.phrases) && sizeForPhraseCount(data.phrases.length)) {
       return data.phrases;
     }
   } catch (e) {}
@@ -420,6 +447,7 @@ async function loadPhrases() {
 
 async function init() {
   phrases = await loadPhrases();
+  applyBoardSize(sizeForPhraseCount(phrases.length) || 5);
   buildBoard();
 }
 init();
